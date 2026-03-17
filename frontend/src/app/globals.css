@@ -71,6 +71,7 @@ h1, h2, h3, h4, h5, h6 {
   background: linear-gradient(135deg, var(--charcoal) 0%, var(--charcoal-light) 50%, #1e2a3a 100%);
   position: relative;
   overflow: hidden;
+  width: 100%;
 }
 
 .hero-gradient::before {

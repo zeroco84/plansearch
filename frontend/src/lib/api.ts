@@ -2,11 +2,9 @@
  * PlanSearch API client
  */
 
-const API_BASE = typeof window !== 'undefined' &&
-  window.location.hostname !== 'localhost' &&
-  window.location.hostname !== '127.0.0.1'
-    ? 'https://api.plansearch.cc'
-    : 'http://localhost:8000';
+const API_BASE = process.env.NODE_ENV === 'production'
+  ? 'https://api.plansearch.cc'
+  : 'http://localhost:8000';
 
 export interface ApplicationSummary {
   id: number;

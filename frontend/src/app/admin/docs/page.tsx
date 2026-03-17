@@ -4,11 +4,9 @@ import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { Database, ArrowLeft, FileText, Play, Pause, RefreshCw } from 'lucide-react';
 
-const API_BASE = typeof window === 'undefined'
+const API_BASE = process.env.NODE_ENV === 'production'
   ? 'https://api.plansearch.cc'
-  : (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
-    ? 'http://localhost:8000'
-    : 'https://api.plansearch.cc';
+  : 'http://localhost:8000';
 
 export default function DocsPage() {
   const [token, setToken] = useState('');

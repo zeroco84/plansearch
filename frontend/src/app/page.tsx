@@ -181,48 +181,44 @@ export default function Home() {
       </nav>
 
       {/* ── Hero Search ──────────────────────────────────── */}
-      <section className="hero-gradient py-16 md:py-24">
-        <div className="max-w-2xl mx-auto px-6">
+      <section className="hero-gradient w-full" style={{ padding: '4rem 0 3rem' }}>
+        <div style={{ maxWidth: '680px', margin: '0 auto', padding: '0 1.5rem' }}>
+          <p className="text-white/50 text-sm text-center mb-6 tracking-wide uppercase" style={{ letterSpacing: '0.12em', fontSize: '0.7rem' }}>
+            650,000+ planning applications · 31 local authorities · AI-classified
+          </p>
           <div className="relative">
             <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-white/40" />
             <input
               ref={searchInputRef}
               type="text"
-              className="search-input pl-14 pr-20 text-lg"
+              className="search-input"
+              style={{ paddingLeft: '3rem', paddingRight: '4rem', fontSize: '1.125rem', width: '100%' }}
               placeholder="Search planning applications..."
               value={query}
               onChange={(e) => { setQuery(e.target.value); setPage(1); }}
               autoFocus
             />
-            <kbd className="absolute right-5 top-1/2 -translate-y-1/2 text-white/30 text-xs border border-white/20 rounded px-1.5 py-0.5">/</kbd>
+            <kbd className="absolute right-4 top-1/2 -translate-y-1/2 text-white/30 text-xs border border-white/20 rounded px-1.5 py-0.5">/</kbd>
           </div>
-
-          {/* Only show result count after search */}
           {results && query && (
-            <p className="text-center text-white/40 text-sm mt-4">
+            <p className="text-center text-white/30 text-xs mt-3">
               {results.total.toLocaleString()} results
-              {results.query_time_ms && <span className="ml-2">{results.query_time_ms.toFixed(0)}ms</span>}
+              {results.query_time_ms && <span className="ml-2 opacity-60">{results.query_time_ms.toFixed(0)}ms</span>}
             </p>
           )}
         </div>
       </section>
 
       {/* ── Default state — example searches ─────────────── */}
-      {!results && !loading && (
-        <div className="max-w-4xl mx-auto px-4 py-8 text-center">
-          <p className="text-sm text-[var(--text-muted)] mb-4">Try searching for:</p>
+      {!results && !loading && !error && (
+        <div style={{ maxWidth: '680px', margin: '2rem auto 0', padding: '0 1.5rem', textAlign: 'center' }}>
+          <p className="text-xs text-[var(--text-muted)] mb-3 uppercase tracking-wider">Try searching for</p>
           <div className="flex flex-wrap justify-center gap-2">
-            {[
-              'apartments Dublin',
-              'hotel Cork',
-              'student accommodation Galway',
-              'data centre Kildare',
-              'protected structure',
-            ].map(example => (
+            {['apartments Dublin', 'hotel Cork', 'student accommodation Galway', 'data centre Kildare', 'protected structure'].map(example => (
               <button
                 key={example}
-                className="text-sm px-4 py-2 rounded-full border border-[var(--border)] text-[var(--text-secondary)] hover:border-[var(--teal)] hover:text-[var(--teal)] transition-colors bg-white"
                 onClick={() => { setQuery(example); setPage(1); }}
+                className="text-sm px-4 py-2 rounded-full border border-[var(--border)] text-[var(--text-secondary)] hover:border-[var(--teal)] hover:text-[var(--teal)] transition-colors bg-white"
               >
                 {example}
               </button>
@@ -233,7 +229,7 @@ export default function Home() {
 
       {/* ── Content: Filters + Results ────────────────────── */}
       {(results || loading) && (
-        <section className="max-w-4xl mx-auto px-4 py-6">
+        <section style={{ maxWidth: '780px', margin: '0 auto', padding: '1.5rem 1.5rem 3rem' }}>
 
           {/* Filters row — one button, expands to full panel */}
           <div className="flex items-center justify-between mb-4">
