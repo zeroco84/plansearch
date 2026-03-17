@@ -86,8 +86,8 @@ h1, h2, h3, h4, h5, h6 {
   border: 1px solid rgba(255, 255, 255, 0.15);
   color: white;
   font-size: 1.125rem;
-  padding: 1rem 1.5rem;
-  border-radius: 0.75rem;
+  padding: 1.1rem 1.5rem;
+  border-radius: 0.875rem;
   width: 100%;
   transition: all 0.3s ease;
   backdrop-filter: blur(12px);
@@ -108,11 +108,7 @@ h1, h2, h3, h4, h5, h6 {
   background: white;
   border: 1px solid var(--border);
   border-radius: 0.75rem;
-  padding: 0.875rem 1rem;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  align-items: center;
+  padding: 1.25rem;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
 }
 
@@ -127,9 +123,7 @@ h1, h2, h3, h4, h5, h6 {
   color: var(--text-primary);
   cursor: pointer;
   transition: border-color 0.2s;
-  min-width: 0;
-  flex: 1 1 auto;
-  max-width: 180px;
+  width: 100%;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M3 5l3 3 3-3' fill='none' stroke='%236b7280' stroke-width='1.5'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 0.5rem center;
@@ -138,6 +132,28 @@ h1, h2, h3, h4, h5, h6 {
 .filter-select:focus {
   outline: none;
   border-color: var(--teal);
+}
+
+.filter-input {
+  appearance: none;
+  background: var(--warm-white);
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  font-family: inherit;
+  font-size: 0.875rem;
+  color: var(--text-primary);
+  width: 100%;
+  transition: border-color 0.2s;
+}
+
+.filter-input:focus {
+  outline: none;
+  border-color: var(--teal);
+}
+
+.filter-input::placeholder {
+  color: var(--text-muted);
 }
 
 /* ── Result Cards ──────────────────────────────────────────── */
@@ -453,16 +469,6 @@ h1, h2, h3, h4, h5, h6 {
 /* ── Responsive ──────────────────────────────────────────── */
 
 @media (max-width: 768px) {
-  .filter-panel {
-    flex-direction: row;
-    flex-wrap: wrap;
-  }
-
-  .filter-select {
-    flex: 1 1 calc(50% - 0.25rem);
-    max-width: calc(50% - 0.25rem);
-  }
-
   .stat-value {
     font-size: 1.75rem;
   }

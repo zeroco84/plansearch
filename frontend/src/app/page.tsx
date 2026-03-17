@@ -181,336 +181,316 @@ export default function Home() {
       </nav>
 
       {/* ── Hero Search ──────────────────────────────────── */}
-      <section className="hero-gradient py-8 md:py-12">
-        <div className="max-w-3xl mx-auto px-4 text-center">
-          <p className="text-sm md:text-base text-white/50 mb-6 max-w-xl mx-auto font-light">
-            Search 650,000+ planning applications across all 31 Irish local authorities.
-            AI-classified, lifecycle-tracked, and value-estimated.
-          </p>
-
+      <section className="hero-gradient py-16 md:py-24">
+        <div className="max-w-2xl mx-auto px-6">
           <div className="relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-white/40" />
+            <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-white/40" />
             <input
               ref={searchInputRef}
               type="text"
-              className="search-input pl-12 pr-16"
-              placeholder="Search by address, applicant, description..."
+              className="search-input pl-14 pr-20 text-lg"
+              placeholder="Search planning applications..."
               value={query}
               onChange={(e) => { setQuery(e.target.value); setPage(1); }}
+              autoFocus
             />
-            <kbd className="absolute right-4 top-1/2 -translate-y-1/2 text-white/30 text-xs border border-white/20 rounded px-1.5 py-0.5">
-              /
-            </kbd>
+            <kbd className="absolute right-5 top-1/2 -translate-y-1/2 text-white/30 text-xs border border-white/20 rounded px-1.5 py-0.5">/</kbd>
           </div>
 
-          {/* Quick stats */}
-          {results && (
-            <div className="mt-4 flex items-center justify-center gap-4 text-sm text-white/40">
-              <span>
-                <strong className="text-white/70">{results.total.toLocaleString()}</strong> results
-              </span>
-              {results.query_time_ms && (
-                <span>{results.query_time_ms.toFixed(0)}ms</span>
-              )}
-            </div>
+          {/* Only show result count after search */}
+          {results && query && (
+            <p className="text-center text-white/40 text-sm mt-4">
+              {results.total.toLocaleString()} results
+              {results.query_time_ms && <span className="ml-2">{results.query_time_ms.toFixed(0)}ms</span>}
+            </p>
           )}
         </div>
       </section>
 
-      {/* ── Content ──────────────────────────────────────── */}
-      <section className="max-w-7xl mx-auto px-4 py-6">
-        {/* Filter bar */}
-        <div className="filter-panel mb-6">
-          <select
-            className="filter-select"
-            value={category}
-            onChange={(e) => { setCategory(e.target.value); setPage(1); }}
-          >
-            <option value="">All Categories</option>
-            {Object.entries(CATEGORY_LABELS).map(([key, label]) => (
-              <option key={key} value={key}>{label}</option>
+      {/* ── Default state — example searches ─────────────── */}
+      {!results && !loading && (
+        <div className="max-w-4xl mx-auto px-4 py-8 text-center">
+          <p className="text-sm text-[var(--text-muted)] mb-4">Try searching for:</p>
+          <div className="flex flex-wrap justify-center gap-2">
+            {[
+              'apartments Dublin',
+              'hotel Cork',
+              'student accommodation Galway',
+              'data centre Kildare',
+              'protected structure',
+            ].map(example => (
+              <button
+                key={example}
+                className="text-sm px-4 py-2 rounded-full border border-[var(--border)] text-[var(--text-secondary)] hover:border-[var(--teal)] hover:text-[var(--teal)] transition-colors bg-white"
+                onClick={() => { setQuery(example); setPage(1); }}
+              >
+                {example}
+              </button>
             ))}
-          </select>
-
-          <select
-            className="filter-select"
-            value={authority}
-            onChange={(e) => { setAuthority(e.target.value); setPage(1); }}
-          >
-            <option value="">All Ireland</option>
-            {Object.entries(IRISH_AUTHORITIES).map(([province, councils]) => (
-              <optgroup key={province} label={province}>
-                {councils.map((c) => (
-                  <option key={c} value={c}>{c}</option>
-                ))}
-              </optgroup>
-            ))}
-          </select>
-
-          <select
-            className="filter-select"
-            value={decision}
-            onChange={(e) => { setDecision(e.target.value); setPage(1); }}
-          >
-            {DECISIONS.map(d => (
-              <option key={d.value} value={d.value}>{d.label}</option>
-            ))}
-          </select>
-
-          <select
-            className="filter-select"
-            value={lifecycleStage}
-            onChange={(e) => { setLifecycleStage(e.target.value); setPage(1); }}
-          >
-            <option value="">All Stages</option>
-            {Object.entries(LIFECYCLE_STAGES).map(([key, label]) => (
-              <option key={key} value={key}>{label}</option>
-            ))}
-          </select>
-
-          <select
-            className="filter-select"
-            value={valueMin}
-            onChange={(e) => { setValueMin(e.target.value); setPage(1); }}
-          >
-            <option value="">Est. Value</option>
-            {VALUE_RANGES.filter(r => r.min).map((r) => (
-              <option key={r.label} value={r.min}>{r.label}</option>
-            ))}
-          </select>
-
-          <select
-            className="filter-select"
-            value={yearFrom}
-            onChange={(e) => { setYearFrom(e.target.value); setPage(1); }}
-          >
-            <option value="">From Year</option>
-            {years.map(y => <option key={y} value={y}>{y}</option>)}
-          </select>
-
-          <button
-            className="btn-secondary"
-            onClick={() => setShowFilters(!showFilters)}
-          >
-            <Filter className="w-4 h-4" />
-            More
-            <ChevronDown className={`w-3 h-3 transition-transform ${showFilters ? 'rotate-180' : ''}`} />
-          </button>
-
-          <select
-            className="filter-select ml-auto"
-            value={sort}
-            onChange={(e) => setSort(e.target.value)}
-          >
-            {SORT_OPTIONS.map(s => (
-              <option key={s.value} value={s.value}>{s.label}</option>
-            ))}
-          </select>
-
-          {hasActiveFilters && (
-            <button className="btn-secondary text-red-500" onClick={clearFilters}>
-              <X className="w-3 h-3" />
-              Clear
-            </button>
-          )}
+          </div>
         </div>
+      )}
 
-        {/* Extended filters */}
-        {showFilters && (
-          <div className="filter-panel mb-6 fade-in">
-            <div className="flex-1 min-w-[200px]">
-              <label className="text-xs text-[var(--text-muted)] uppercase tracking-wider block mb-1">Applicant Name</label>
+      {/* ── Content: Filters + Results ────────────────────── */}
+      {(results || loading) && (
+        <section className="max-w-4xl mx-auto px-4 py-6">
+
+          {/* Filters row — one button, expands to full panel */}
+          <div className="flex items-center justify-between mb-4">
+            <button
+              className="btn-secondary flex items-center gap-2 text-sm"
+              onClick={() => setShowFilters(!showFilters)}
+            >
+              <Filter className="w-4 h-4" />
+              {showFilters ? 'Hide filters' : 'Filters'}
+              {hasActiveFilters && (
+                <span className="w-2 h-2 rounded-full bg-[var(--teal)] ml-1" />
+              )}
+            </button>
+
+            <div className="flex items-center gap-2">
+              {hasActiveFilters && (
+                <button className="text-xs text-[var(--text-muted)] hover:text-red-500 transition-colors" onClick={clearFilters}>
+                  Clear all
+                </button>
+              )}
+              <select className="filter-select text-sm" value={sort} onChange={(e) => setSort(e.target.value)}>
+                {SORT_OPTIONS.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+              </select>
+            </div>
+          </div>
+
+          {/* Expandable filter panel */}
+          {showFilters && (
+            <div className="filter-panel mb-6 fade-in grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+              <select className="filter-select" value={category} onChange={(e) => { setCategory(e.target.value); setPage(1); }}>
+                <option value="">All Categories</option>
+                {Object.entries(CATEGORY_LABELS).map(([key, label]) => (
+                  <option key={key} value={key}>{label}</option>
+                ))}
+              </select>
+
+              <select className="filter-select" value={authority} onChange={(e) => { setAuthority(e.target.value); setPage(1); }}>
+                <option value="">All Ireland</option>
+                {Object.entries(IRISH_AUTHORITIES).map(([province, councils]) => (
+                  <optgroup key={province} label={province}>
+                    {councils.map(c => <option key={c} value={c}>{c}</option>)}
+                  </optgroup>
+                ))}
+              </select>
+
+              <select className="filter-select" value={decision} onChange={(e) => { setDecision(e.target.value); setPage(1); }}>
+                {DECISIONS.map(d => <option key={d.value} value={d.value}>{d.label}</option>)}
+              </select>
+
+              <select className="filter-select" value={lifecycleStage} onChange={(e) => { setLifecycleStage(e.target.value); setPage(1); }}>
+                <option value="">All Stages</option>
+                {Object.entries(LIFECYCLE_STAGES).map(([key, label]) => (
+                  <option key={key} value={key}>{label}</option>
+                ))}
+              </select>
+
+              <select className="filter-select" value={valueMin} onChange={(e) => { setValueMin(e.target.value); setPage(1); }}>
+                <option value="">Est. Value</option>
+                {VALUE_RANGES.filter(r => r.min).map(r => (
+                  <option key={r.label} value={r.min}>{r.label}</option>
+                ))}
+              </select>
+
+              <select className="filter-select" value={yearFrom} onChange={(e) => { setYearFrom(e.target.value); setPage(1); }}>
+                <option value="">From Year</option>
+                {years.map(y => <option key={y} value={y}>{y}</option>)}
+              </select>
+
               <input
                 type="text"
-                className="w-full px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--warm-white)] text-sm focus:outline-none focus:border-[var(--teal)]"
-                placeholder="Search applicant..."
+                className="filter-input"
+                placeholder="Applicant name..."
                 value={applicantFilter}
                 onChange={(e) => { setApplicantFilter(e.target.value); setPage(1); }}
               />
-            </div>
-            <div className="flex-1 min-w-[200px]">
-              <label className="text-xs text-[var(--text-muted)] uppercase tracking-wider block mb-1">Location</label>
+
               <input
                 type="text"
-                className="w-full px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--warm-white)] text-sm focus:outline-none focus:border-[var(--teal)]"
-                placeholder="Search location..."
+                className="filter-input"
+                placeholder="Location..."
                 value={locationFilter}
                 onChange={(e) => { setLocationFilter(e.target.value); setPage(1); }}
               />
             </div>
-          </div>
-        )}
-
-        {/* Error state */}
-        {error && !loading && (
-          <div className={`rounded-lg p-4 mb-6 text-sm ${
-            error.includes('fetch') || error.includes('Failed')
-              ? 'bg-amber-50 border border-amber-200 text-amber-700'
-              : 'bg-red-50 border border-red-200 text-red-700'
-          }`}>
-            {error.includes('fetch') || error.includes('Failed')
-              ? '⏳ Connecting to search service — the API may be starting up. Results will appear shortly.'
-              : error}
-          </div>
-        )}
-
-        {/* Results */}
-        <div className="space-y-3">
-          {loading && !results && (
-            Array.from({ length: 5 }).map((_, i) => (
-              <div key={i} className="result-card">
-                <div className="skeleton h-4 w-24 mb-3" />
-                <div className="skeleton h-5 w-3/4 mb-2" />
-                <div className="skeleton h-4 w-1/2" />
-              </div>
-            ))
           )}
 
-          {results?.results.map((app, i) => (
-            <div key={app.id}>
-              {/* Per spec 24.5: Promoted card every 10th result, never first, max 1/page */}
-              {i === 9 && (
-                <PromotedCard
-                  devCategory={category}
-                  council={authority}
-                  lifecycleStage={lifecycleStage}
-                  pagePath="/search"
-                />
-              )}
-              <Link
-                href={`/application/${encodeURIComponent(app.reg_ref)}`}
-                className="no-underline"
-              >
-                <div className="result-card fade-in" style={{ animationDelay: `${i * 30}ms` }}>
-                  <div className="flex flex-wrap items-start justify-between gap-2 mb-2">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="reg-ref-badge">{app.reg_ref}</span>
-                      <span className={`decision-chip ${getDecisionClass(app.decision)}`}>
-                        {getDecisionLabel(app.decision)}
+          {/* Error state */}
+          {error && !loading && (
+            <div className={`rounded-lg p-4 mb-6 text-sm ${
+              error.includes('fetch') || error.includes('Failed')
+                ? 'bg-amber-50 border border-amber-200 text-amber-700'
+                : 'bg-red-50 border border-red-200 text-red-700'
+            }`}>
+              {error.includes('fetch') || error.includes('Failed')
+                ? '⏳ Connecting to search service — results will appear shortly.'
+                : error}
+            </div>
+          )}
+
+          {/* Results */}
+          <div className="space-y-3">
+            {loading && !results && (
+              Array.from({ length: 5 }).map((_, i) => (
+                <div key={i} className="result-card">
+                  <div className="skeleton h-4 w-24 mb-3" />
+                  <div className="skeleton h-5 w-3/4 mb-2" />
+                  <div className="skeleton h-4 w-1/2" />
+                </div>
+              ))
+            )}
+
+            {results?.results.map((app, i) => (
+              <div key={app.id}>
+                {/* Per spec 24.5: Promoted card every 10th result, never first, max 1/page */}
+                {i === 9 && (
+                  <PromotedCard
+                    devCategory={category}
+                    council={authority}
+                    lifecycleStage={lifecycleStage}
+                    pagePath="/search"
+                  />
+                )}
+                <Link
+                  href={`/application/${encodeURIComponent(app.reg_ref)}`}
+                  className="no-underline"
+                >
+                  <div className="result-card fade-in" style={{ animationDelay: `${i * 30}ms` }}>
+                    <div className="flex flex-wrap items-start justify-between gap-2 mb-2">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="reg-ref-badge">{app.reg_ref}</span>
+                        <span className={`decision-chip ${getDecisionClass(app.decision)}`}>
+                          {getDecisionLabel(app.decision)}
+                        </span>
+                        {app.dev_category && (
+                          <span className="category-tag">
+                            {CATEGORY_LABELS[app.dev_category] || app.dev_category}
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-xs text-[var(--text-muted)]">
+                        {formatDate(app.apn_date)}
                       </span>
-                      {app.dev_category && (
-                        <span className="category-tag">
-                          {CATEGORY_LABELS[app.dev_category] || app.dev_category}
+                    </div>
+
+                    {app.location && (
+                      <div className="flex items-start gap-1.5 mb-1.5">
+                        <MapPin className="w-3.5 h-3.5 text-[var(--text-muted)] mt-0.5 flex-shrink-0" />
+                        <span className="text-sm font-medium text-[var(--text-primary)]">{app.location}</span>
+                      </div>
+                    )}
+
+                    {app.proposal && (
+                      <p className="text-sm text-[var(--text-secondary)] line-clamp-2 ml-5">
+                        {app.proposal}
+                      </p>
+                    )}
+
+                    {app.applicant_name && (
+                      <div className="flex items-center gap-1.5 mt-2 ml-5">
+                        <Building2 className="w-3 h-3 text-[var(--text-muted)]" />
+                        <span className="text-xs text-[var(--text-muted)]">{app.applicant_name}</span>
+                      </div>
+                    )}
+
+                    {/* Phase 2 fields */}
+                    <div className="flex flex-wrap items-center gap-2 mt-2 ml-5">
+                      {app.planning_authority && (
+                        <span className="text-xs px-1.5 py-0.5 rounded bg-blue-50 text-blue-700" style={{ fontSize: '0.65rem' }}>
+                          {app.planning_authority}
+                        </span>
+                      )}
+                      {app.lifecycle_stage && (
+                        <span
+                          className="text-xs px-1.5 py-0.5 rounded text-white"
+                          style={{ backgroundColor: LIFECYCLE_COLORS[app.lifecycle_stage] || '#6b7280', fontSize: '0.65rem' }}
+                        >
+                          {LIFECYCLE_STAGES[app.lifecycle_stage] || app.lifecycle_stage}
+                        </span>
+                      )}
+                      {app.est_value_high && (
+                        <span className="text-xs font-semibold text-emerald-600" style={{ fontSize: '0.7rem' }}>
+                          {formatValue(app.est_value_high)}
+                        </span>
+                      )}
+                      {app.num_residential_units && app.num_residential_units > 0 && (
+                        <span className="text-xs text-[var(--text-muted)]">
+                          {app.num_residential_units} units
                         </span>
                       )}
                     </div>
-                    <span className="text-xs text-[var(--text-muted)]">
-                      {formatDate(app.apn_date)}
-                    </span>
                   </div>
+                </Link>
+              </div>
+            ))}
 
-                  {app.location && (
-                    <div className="flex items-start gap-1.5 mb-1.5">
-                      <MapPin className="w-3.5 h-3.5 text-[var(--text-muted)] mt-0.5 flex-shrink-0" />
-                      <span className="text-sm font-medium text-[var(--text-primary)]">{app.location}</span>
-                    </div>
-                  )}
+            {results && results.results.length === 0 && (
+              <div className="text-center py-16">
+                <Search className="w-12 h-12 text-[var(--border)] mx-auto mb-4" />
+                <h3 className="text-lg text-[var(--text-secondary)]" style={{ fontFamily: "'Playfair Display', serif" }}>
+                  No applications found
+                </h3>
+                <p className="text-sm text-[var(--text-muted)] mt-1">
+                  Try adjusting your search or filters
+                </p>
+              </div>
+            )}
+          </div>
 
-                  {app.proposal && (
-                    <p className="text-sm text-[var(--text-secondary)] line-clamp-2 ml-5">
-                      {app.proposal}
-                    </p>
-                  )}
-
-                  {app.applicant_name && (
-                    <div className="flex items-center gap-1.5 mt-2 ml-5">
-                      <Building2 className="w-3 h-3 text-[var(--text-muted)]" />
-                      <span className="text-xs text-[var(--text-muted)]">{app.applicant_name}</span>
-                    </div>
-                  )}
-
-                  {/* Phase 2 fields */}
-                  <div className="flex flex-wrap items-center gap-2 mt-2 ml-5">
-                    {app.planning_authority && (
-                      <span className="text-xs px-1.5 py-0.5 rounded bg-blue-50 text-blue-700" style={{ fontSize: '0.65rem' }}>
-                        {app.planning_authority}
-                      </span>
-                    )}
-                    {app.lifecycle_stage && (
-                      <span
-                        className="text-xs px-1.5 py-0.5 rounded text-white"
-                        style={{ backgroundColor: LIFECYCLE_COLORS[app.lifecycle_stage] || '#6b7280', fontSize: '0.65rem' }}
-                      >
-                        {LIFECYCLE_STAGES[app.lifecycle_stage] || app.lifecycle_stage}
-                      </span>
-                    )}
-                    {app.est_value_high && (
-                      <span className="text-xs font-semibold text-emerald-600" style={{ fontSize: '0.7rem' }}>
-                        {formatValue(app.est_value_high)}
-                      </span>
-                    )}
-                    {app.num_residential_units && app.num_residential_units > 0 && (
-                      <span className="text-xs text-[var(--text-muted)]">
-                        {app.num_residential_units} units
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </Link>
-            </div>
-          ))}
-
-          {results && results.results.length === 0 && (
-            <div className="text-center py-16">
-              <Search className="w-12 h-12 text-[var(--border)] mx-auto mb-4" />
-              <h3 className="text-lg text-[var(--text-secondary)]" style={{ fontFamily: "'Playfair Display', serif" }}>
-                No applications found
-              </h3>
-              <p className="text-sm text-[var(--text-muted)] mt-1">
-                Try adjusting your search or filters
-              </p>
+          {/* Pagination */}
+          {results && results.total_pages > 1 && (
+            <div className="flex items-center justify-center gap-2 mt-8 mb-12">
+              <button
+                className="btn-secondary"
+                disabled={page <= 1}
+                onClick={() => setPage(p => Math.max(1, p - 1))}
+              >
+                Previous
+              </button>
+              <span className="text-sm text-[var(--text-muted)] px-4">
+                Page {page} of {results.total_pages}
+              </span>
+              <button
+                className="btn-secondary"
+                disabled={page >= results.total_pages}
+                onClick={() => setPage(p => p + 1)}
+              >
+                Next
+              </button>
             </div>
           )}
-        </div>
 
-        {/* Pagination */}
-        {results && results.total_pages > 1 && (
-          <div className="flex items-center justify-center gap-2 mt-8 mb-12">
-            <button
-              className="btn-secondary"
-              disabled={page <= 1}
-              onClick={() => setPage(p => Math.max(1, p - 1))}
-            >
-              Previous
-            </button>
-            <span className="text-sm text-[var(--text-muted)] px-4">
-              Page {page} of {results.total_pages}
-            </span>
-            <button
-              className="btn-secondary"
-              disabled={page >= results.total_pages}
-              onClick={() => setPage(p => p + 1)}
-            >
-              Next
-            </button>
-          </div>
-        )}
-
-        {/* CSV Export */}
-        {results && results.total > 0 && (
-          <div className="text-center mb-8">
-            <a
-              href={(() => {
-                const params = new URLSearchParams();
-                if (query) params.set('q', query);
-                if (category) params.set('category', category);
-                if (decision) params.set('decision', decision);
-                if (yearFrom) params.set('year_from', yearFrom);
-                if (yearTo) params.set('year_to', yearTo);
-                if (applicantFilter) params.set('applicant', applicantFilter);
-                if (locationFilter) params.set('location', locationFilter);
-                return `https://api.plansearch.cc/api/export/csv?${params.toString()}`;
-              })()}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="btn-secondary inline-flex no-underline"
-            >
-              <Download className="w-4 h-4" />
-              Export CSV ({Math.min(results.total, 5000).toLocaleString()} rows)
-            </a>
-          </div>
-        )}
-      </section>
+          {/* CSV Export */}
+          {results && results.total > 0 && (
+            <div className="text-center mb-8">
+              <a
+                href={(() => {
+                  const params = new URLSearchParams();
+                  if (query) params.set('q', query);
+                  if (category) params.set('category', category);
+                  if (decision) params.set('decision', decision);
+                  if (yearFrom) params.set('year_from', yearFrom);
+                  if (yearTo) params.set('year_to', yearTo);
+                  if (applicantFilter) params.set('applicant', applicantFilter);
+                  if (locationFilter) params.set('location', locationFilter);
+                  return `https://api.plansearch.cc/api/export/csv?${params.toString()}`;
+                })()}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn-secondary inline-flex no-underline"
+              >
+                <Download className="w-4 h-4" />
+                Export CSV ({Math.min(results.total, 5000).toLocaleString()} rows)
+              </a>
+            </div>
+          )}
+        </section>
+      )}
 
       {/* ── Footer ──────────────────────────────────────── */}
       <footer className="border-t border-[var(--border)] py-8 mt-12">
@@ -525,3 +505,4 @@ export default function Home() {
     </main>
   );
 }
+
