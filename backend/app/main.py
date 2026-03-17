@@ -1,6 +1,6 @@
 """PlanSearch — FastAPI Application Entry Point.
 
-Dublin Planning Intelligence Platform API.
+National Planning Intelligence Platform API.
 """
 
 import logging
@@ -11,6 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import get_settings
 from app.api.routes import search, applications, map, stats, admin, export, docs, digest
+from app.api.routes import insights, advertising
 
 logging.basicConfig(
     level=logging.INFO,
@@ -53,6 +54,9 @@ app.include_router(admin.router, prefix="/api", tags=["Admin"])
 app.include_router(export.router, prefix="/api", tags=["Export"])
 app.include_router(docs.router, prefix="/api", tags=["Documents"])
 app.include_router(digest.router, prefix="/api", tags=["Digest"])
+# Phase 3
+app.include_router(insights.router, tags=["Insights"])
+app.include_router(advertising.router, tags=["Advertising"])
 
 
 @app.get("/api/health")

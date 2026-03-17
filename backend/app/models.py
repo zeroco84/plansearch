@@ -15,13 +15,14 @@ from sqlalchemy import (
     Float,
     ForeignKey,
     Integer,
+    Numeric,
     String,
     Text,
     BigInteger,
     func,
     Computed,
 )
-from sqlalchemy.dialects.postgresql import JSONB, TSVECTOR
+from sqlalchemy.dialects.postgresql import JSONB, TSVECTOR, ARRAY
 from sqlalchemy.orm import relationship
 
 from app.database import Base
@@ -394,3 +395,117 @@ class WeeklyDigest(Base):
     total_entries = Column(Integer, default=0)
     digest_data = Column(JSONB)
     published = Column(Boolean, default=False)
+
+
+# ═════════════════════════════════════════════════════════════════
+# Phase 3: The Build Integration + Advertising
+# ═════════════════════════════════════════════════════════════════
+
+
+class BuildPost(Base):
+    """The Build newsletter post, ingested from Substack RSS."""
+
+    __tablename__ = "build_posts"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    slug = Column(String(200), unique=True, nullable=False)
+    title = Column(Text, nullable=False)
+    subtitle = Column(Text)
+    excerpt = Column(Text)
+    featured_image_url = Column(Text)
+    substack_url = Column(Text, nullable=False)
+    published_at = Column(DateTime(timezone=True))
+
+    # AI-generated metadata
+    summary_one_line = Column(Text)
+    topics = Column(ARRAY(Text))
+    mentioned_councils = Column(ARRAY(Text))
+    tone = Column(String(20))
+
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    # Relationships
+    application_links = relationship(
+        "PostApplicationLink", back_populates="post", cascade="all, delete-orphan"
+    )
+
+
+class PostApplicationLink(Base):
+    """Link between a Build post and a planning application."""
+
+    __tablename__ = "post_application_links"
+
+    post_id = Column(Integer, ForeignKey("build_posts.id", ondelete="CASCADE"), primary_key=True)
+    application_id = Column(Integer, ForeignKey("applications.id", ondelete="CASCADE"), primary_key=True)
+    link_type = Column(String(30))  # mentioned | related_location | related_topic
+    confidence = Column(Float)
+
+    post = relationship("BuildPost", back_populates="application_links")
+    application = relationship("Application")
+
+
+class Advertiser(Base):
+    """Advertising client."""
+
+    __tablename__ = "advertisers"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    company_name = Column(Text, nullable=False)
+    contact_name = Column(Text)
+    contact_email = Column(Text)
+    industry = Column(String(50))
+    notes = Column(Text)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    campaigns = relationship("AdCampaign", back_populates="advertiser", cascade="all, delete-orphan")
+
+
+class AdCampaign(Base):
+    """Ad campaign with contextual targeting and privacy-first analytics."""
+
+    __tablename__ = "ad_campaigns"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    advertiser_id = Column(Integer, ForeignKey("advertisers.id"))
+    campaign_name = Column(Text, nullable=False)
+    campaign_type = Column(String(20))  # display | sponsored_content
+    start_date = Column(Date, nullable=False)
+    end_date = Column(Date, nullable=False)
+    status = Column(String(20), default="active")  # active | paused | ended
+
+    # Creative
+    headline = Column(String(60))
+    body_text = Column(String(120))
+    cta_text = Column(String(30))
+    cta_url = Column(Text)
+    logo_url = Column(Text)
+
+    # Contextual targeting
+    target_categories = Column(ARRAY(Text))
+    target_councils = Column(ARRAY(Text))
+    target_lifecycle = Column(ARRAY(Text))
+
+    # Aggregate analytics
+    impressions = Column(Integer, default=0)
+    clicks = Column(Integer, default=0)
+
+    # Financials
+    agreed_price = Column(Numeric(10, 2))
+    invoice_ref = Column(Text)
+
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    advertiser = relationship("Advertiser", back_populates="campaigns")
+
+
+class AdImpression(Base):
+    """Aggregate impression log — no user data."""
+
+    __tablename__ = "ad_impressions"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    campaign_id = Column(Integer, ForeignKey("ad_campaigns.id"))
+    page_path = Column(Text)
+    clicked = Column(Boolean, default=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
