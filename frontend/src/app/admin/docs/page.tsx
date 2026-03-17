@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
-import { Database, ArrowLeft, FileText, Play, Pause, RefreshCw } from 'lucide-react';
+import { Database, ArrowLeft, FileText, Play, Pause, RefreshCw, Settings, Search, TrendingUp, BookOpen, Map as MapIcon } from 'lucide-react';
 
 const API_BASE = process.env.NODE_ENV === 'production'
   ? 'https://api.plansearch.cc'
@@ -70,19 +70,24 @@ export default function DocsPage() {
     : 0;
 
   return (
-    <main className="min-h-screen bg-[var(--warm-white)]">
-      <nav className="hero-gradient" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-        <div className="max-w-7xl mx-auto px-4 py-3 flex items-center gap-4">
-          <Link href="/" className="flex items-center gap-2 text-white no-underline">
+    <main style={{ minHeight: '100vh', background: '#f9f8f6' }}>
+      <nav style={{ background: '#0d1117', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: '64px', padding: '0 2rem', width: '100%' }}>
+          <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'white', textDecoration: 'none' }}>
             <Database className="w-5 h-5 text-[var(--teal)]" />
-            <span className="font-semibold text-lg" style={{ fontFamily: "'Playfair Display', serif" }}>PlanSearch</span>
+            <span style={{ color: 'white', fontSize: '1.125rem', fontWeight: '600', letterSpacing: '-0.01em', fontFamily: "'Playfair Display', serif" }}>PlanSearch</span>
           </Link>
-          <span className="text-white/30">|</span>
-          <span className="text-white/70 text-sm">Document Scraping</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+            <Link href="/" className="nav-link"><Search className="w-5 h-5" /><span className="hidden sm:inline">Search</span></Link>
+            <Link href="/map" className="nav-link"><MapIcon className="w-5 h-5" /><span className="hidden sm:inline">Map</span></Link>
+            <Link href="/significant" className="nav-link"><TrendingUp className="w-5 h-5" /><span className="hidden sm:inline">Significant</span></Link>
+            <Link href="/insights" className="nav-link"><BookOpen className="w-5 h-5" /><span className="hidden sm:inline">Insights</span></Link>
+            <Link href="/admin" className="nav-link" style={{ color: 'var(--teal)' }}><Settings className="w-5 h-5" /><span className="hidden sm:inline">Admin</span></Link>
+          </div>
         </div>
       </nav>
 
-      <div className="max-w-4xl mx-auto px-4 py-6">
+      <div style={{ maxWidth: '900px', margin: '0 auto', padding: '1.5rem 2rem 4rem' }}>
         <Link href="/admin" className="inline-flex items-center gap-1 text-sm text-[var(--text-muted)] hover:text-[var(--teal)] mb-6 no-underline">
           <ArrowLeft className="w-4 h-4" /> Back to Admin
         </Link>
