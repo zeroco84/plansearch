@@ -10,7 +10,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import get_settings
-from app.api.routes import search, applications, map, stats, admin
+from app.api.routes import search, applications, map, stats, admin, export
 
 logging.basicConfig(
     level=logging.INFO,
@@ -50,6 +50,7 @@ app.include_router(applications.router, prefix="/api", tags=["Applications"])
 app.include_router(map.router, prefix="/api", tags=["Map"])
 app.include_router(stats.router, prefix="/api", tags=["Stats"])
 app.include_router(admin.router, prefix="/api", tags=["Admin"])
+app.include_router(export.router, prefix="/api", tags=["Export"])
 
 
 @app.get("/api/health")

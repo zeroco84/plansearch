@@ -399,10 +399,26 @@ export default function Home() {
         {/* CSV Export */}
         {results && results.total > 0 && (
           <div className="text-center mb-8">
-            <button className="btn-secondary">
+            <a
+              href={(() => {
+                const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+                const params = new URLSearchParams();
+                if (query) params.set('q', query);
+                if (category) params.set('category', category);
+                if (decision) params.set('decision', decision);
+                if (yearFrom) params.set('year_from', yearFrom);
+                if (yearTo) params.set('year_to', yearTo);
+                if (applicantFilter) params.set('applicant', applicantFilter);
+                if (locationFilter) params.set('location', locationFilter);
+                return `${API_BASE}/api/export/csv?${params.toString()}`;
+              })()}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn-secondary inline-flex no-underline"
+            >
               <Download className="w-4 h-4" />
               Export CSV ({Math.min(results.total, 5000).toLocaleString()} rows)
-            </button>
+            </a>
           </div>
         )}
       </section>
