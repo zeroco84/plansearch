@@ -60,7 +60,7 @@ async def _get_claude_key(db: AsyncSession) -> Optional[str]:
         )
         config = result.scalar_one_or_none()
         if config:
-            from app.api.routes.admin import decrypt_value
+            from app.utils.crypto import decrypt_value
             return decrypt_value(config.value)
     except Exception:
         pass
