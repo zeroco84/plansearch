@@ -16,6 +16,9 @@ import {
   type ApplicationSummary,
   type DigestResponse,
 } from '@/lib/api';
+import {
+  Database, Settings, Map as MapIcon, TrendingUp, BookOpen, Search,
+} from 'lucide-react';
 
 export default function SignificantPage() {
   const [entries, setEntries] = useState<ApplicationSummary[]>([]);
@@ -54,9 +57,40 @@ export default function SignificantPage() {
 
   return (
     <div className="significant-page">
+      {/* NAV — matches homepage */}
+      <nav style={{ background: '#0d1117', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+        <div className="max-w-7xl mx-auto px-8 flex items-center justify-between" style={{ height: '64px' }}>
+          <Link href="/" className="flex items-center gap-2 text-white no-underline">
+            <Database className="w-5 h-5 text-[var(--teal)]" />
+            <span style={{ color: 'white', fontSize: '1.125rem', fontWeight: '600', letterSpacing: '-0.01em', fontFamily: "'Playfair Display', serif" }}>PlanSearch</span>
+          </Link>
+          <div className="flex items-center gap-1">
+            <Link href="/" className="nav-link">
+              <Search className="w-5 h-5" />
+              <span className="hidden sm:inline">Search</span>
+            </Link>
+            <Link href="/map" className="nav-link">
+              <MapIcon className="w-5 h-5" />
+              <span className="hidden sm:inline">Map</span>
+            </Link>
+            <Link href="/significant" className="nav-link" style={{ color: 'var(--teal)' }}>
+              <TrendingUp className="w-5 h-5" />
+              <span className="hidden sm:inline">Significant</span>
+            </Link>
+            <Link href="/insights" className="nav-link">
+              <BookOpen className="w-5 h-5" />
+              <span className="hidden sm:inline">Insights</span>
+            </Link>
+            <Link href="/admin" className="nav-link">
+              <Settings className="w-5 h-5" />
+              <span className="hidden sm:inline">Admin</span>
+            </Link>
+          </div>
+        </div>
+      </nav>
+
       <header className="significant-header">
         <div className="header-content">
-          <Link href="/" className="back-link">← PlanSearch</Link>
           <h1>🏗️ Significant Planning Activity</h1>
           <p className="subtitle">
             {digest?.week_start && digest?.week_end
@@ -238,21 +272,11 @@ export default function SignificantPage() {
         }
 
         .significant-header {
-          padding: 2.5rem 2rem 1.5rem;
+          padding: 2rem 2rem 1.5rem;
           text-align: center;
           background: rgba(255,255,255,0.03);
           border-bottom: 1px solid rgba(255,255,255,0.06);
         }
-
-        .back-link {
-          color: #60a5fa;
-          text-decoration: none;
-          font-size: 0.85rem;
-          display: inline-block;
-          margin-bottom: 0.75rem;
-        }
-
-        .back-link:hover { text-decoration: underline; }
 
         h1 {
           font-size: 1.75rem;
@@ -276,6 +300,8 @@ export default function SignificantPage() {
           overflow-x: auto;
           background: rgba(255,255,255,0.02);
           border-bottom: 1px solid rgba(255,255,255,0.06);
+          max-width: 900px;
+          margin: 0 auto;
         }
 
         .filter-group {
@@ -311,7 +337,7 @@ export default function SignificantPage() {
         .results-section {
           max-width: 900px;
           margin: 0 auto;
-          padding: 1.5rem 1rem;
+          padding: 1.5rem 2rem;
         }
 
         .loading-state, .empty-state {
