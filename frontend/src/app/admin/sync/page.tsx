@@ -3,10 +3,10 @@
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import {
-  Database, ArrowLeft, RefreshCw, Play, CheckCircle, XCircle,
+  Database, ArrowLeft, RefreshCw, Play, CheckCircle, XCircle, Square,
   Settings, Search, TrendingUp, BookOpen, Map as MapIcon, Building2,
 } from 'lucide-react';
-import { triggerNpadSync, triggerBcmsSync, fetchSyncProgress, getSyncStatus, getAdminLogs } from '@/lib/api';
+import { triggerNpadSync, triggerBcmsSync, fetchSyncProgress, stopSync, getSyncStatus, getAdminLogs } from '@/lib/api';
 
 interface SyncProgress {
   running: boolean;
@@ -153,31 +153,53 @@ export default function SyncPage() {
             marginBottom: '1.25rem', padding: '1.25rem 1.5rem',
             background: '#f0fdfb', border: '1px solid #1d9e75', borderRadius: '10px',
           }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
-              <div style={{
-                width: '10px', height: '10px', borderRadius: '50%',
-                background: '#1d9e75', animation: 'syncPulse 1.2s ease-in-out infinite',
-              }} />
-              <span style={{ fontSize: '0.9rem', fontWeight: '600', color: '#065f46' }}>
-                {sourceLabel} sync running...
-              </span>
-            </div>
-            <div style={{ fontSize: '2rem', fontWeight: '700', color: '#1d9e75', letterSpacing: '-0.02em', lineHeight: 1.1 }}>
-              {progress.processed.toLocaleString()}
-            </div>
-            <div style={{ fontSize: '0.8rem', color: '#6b7280', marginTop: '4px' }}>
-              records loaded
-              {progress.errors > 0 && (
-                <span style={{ color: '#dc2626', marginLeft: '12px' }}>
-                  {progress.errors.toLocaleString()} errors
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
+                <div style={{
+                  width: '10px', height: '10px', borderRadius: '50%',
+                  background: '#1d9e75', animation: 'syncPulse 1.2s ease-in-out infinite',
+                }} />
+                <span style={{ fontSize: '0.9rem', fontWeight: '600', color: '#065f46' }}>
+                  {sourceLabel} sync running...
                 </span>
+              </div>
+              <div style={{ fontSize: '2rem', fontWeight: '700', color: '#1d9e75', letterSpacing: '-0.02em', lineHeight: 1.1 }}>
+                {progress.processed.toLocaleString()}
+              </div>
+              <div style={{ fontSize: '0.8rem', color: '#6b7280', marginTop: '4px' }}>
+                records loaded
+                {progress.errors > 0 && (
+                  <span style={{ color: '#dc2626', marginLeft: '12px' }}>
+                    {progress.errors.toLocaleString()} errors
+                  </span>
+                )}
+              </div>
+              {progress.started_at && (
+                <div style={{ fontSize: '0.7rem', color: '#9ca3af', marginTop: '6px' }}>
+                  Started {new Date(progress.started_at).toLocaleTimeString('en-IE')}
+                </div>
               )}
             </div>
-            {progress.started_at && (
-              <div style={{ fontSize: '0.7rem', color: '#9ca3af', marginTop: '6px' }}>
-                Started {new Date(progress.started_at).toLocaleTimeString('en-IE')}
-              </div>
-            )}
+            <button
+              onClick={async () => {
+                try {
+                  await stopSync(token);
+                  setMessage('Stop requested — sync will halt after current batch');
+                } catch {}
+              }}
+              style={{
+                padding: '0.5rem 1rem', background: '#dc2626', color: 'white',
+                border: 'none', borderRadius: '8px', cursor: 'pointer',
+                fontSize: '0.8rem', fontWeight: '600',
+                display: 'flex', alignItems: 'center', gap: '0.35rem',
+                flexShrink: 0,
+              }}
+            >
+              <Square style={{ width: '14px', height: '14px' }} />
+              Stop
+            </button>
+          </div>
           </div>
         )}
 

@@ -38,6 +38,7 @@ sync_progress = {
     "errors": 0,
     "started_at": None,
     "source": None,
+    "stop_requested": False,
 }
 
 
@@ -185,6 +186,17 @@ async def get_sync_progress(
 ):
     """Get live sync progress — polled by the frontend every 3 seconds."""
     return sync_progress
+
+
+@router.post("/admin/sync/stop")
+async def stop_sync(
+    _token: str = Depends(verify_admin_token),
+):
+    """Request a running sync to stop gracefully."""
+    if not sync_progress["running"]:
+        return {"status": "not_running"}
+    sync_progress["stop_requested"] = True
+    return {"status": "stop_requested", "source": sync_progress["source"]}
 
 
 @router.post("/admin/sync/trigger", response_model=SyncTriggerResponse)

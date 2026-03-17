@@ -243,6 +243,13 @@ export async function fetchSyncProgress(token: string) {
   });
 }
 
+export async function stopSync(token: string) {
+  return fetchApi('/api/admin/sync/stop', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
 export async function triggerBenchmarkScrape(token: string) {
   return fetchApi('/api/admin/benchmarks/scrape', {
     method: 'POST',

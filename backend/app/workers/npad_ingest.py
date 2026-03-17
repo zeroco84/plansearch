@@ -121,6 +121,10 @@ async def upsert_npad_record(db: AsyncSession, attrs: dict) -> bool:
             values[k] = None
 
     try:
+        # Savepoint: if this insert fails, roll back only this record
+        # leaving the parent transaction alive for the next record
+        await db.execute(text("SAVEPOINT npad_upsert"))
+
         cols = list(values.keys())
         placeholders = [f":{k}" for k in cols]
         update_parts = [f"{k} = EXCLUDED.{k}" for k in cols if k != "reg_ref"]
@@ -141,8 +145,11 @@ async def upsert_npad_record(db: AsyncSession, attrs: dict) -> bool:
             """)
 
         await db.execute(sql, values)
+        await db.execute(text("RELEASE SAVEPOINT npad_upsert"))
         return True
     except Exception as e:
+        # Roll back only this record, not the whole transaction
+        await db.execute(text("ROLLBACK TO SAVEPOINT npad_upsert"))
         logger.error(f"Error upserting {reg_ref}: {e}")
         return False
 
@@ -222,6 +229,8 @@ async def run_npad_ingest_with_progress(
 
     The progress dict is read by the /admin/sync/progress endpoint
     and polled by the frontend every 3 seconds.
+
+    Supports a 'stop_requested' flag to halt mid-sync from the admin UI.
     """
     logger.info("Starting NPAD ingest (with progress)...")
 
@@ -231,6 +240,12 @@ async def run_npad_ingest_with_progress(
         ) as client:
             offset = 0
             while True:
+                # Check for stop signal
+                if progress.get("stop_requested"):
+                    logger.info("NPAD ingest stopped by admin")
+                    await db.commit()
+                    break
+
                 logger.info(f"Fetching NPAD page at offset {offset}...")
                 records = await fetch_npad_page(client, offset)
 
@@ -239,6 +254,12 @@ async def run_npad_ingest_with_progress(
                     break
 
                 for attrs in records:
+                    # Check for stop signal between records
+                    if progress.get("stop_requested"):
+                        logger.info("NPAD ingest stopped by admin")
+                        await db.commit()
+                        break
+
                     ok = await upsert_npad_record(db, attrs)
                     if ok:
                         progress["processed"] += 1
@@ -252,6 +273,9 @@ async def run_npad_ingest_with_progress(
                     if limit and progress["processed"] >= limit:
                         break
 
+                if progress.get("stop_requested"):
+                    break
+
                 await db.commit()
                 offset += PAGE_SIZE
 
@@ -261,6 +285,7 @@ async def run_npad_ingest_with_progress(
                     break
 
         progress["running"] = False
+        progress["stop_requested"] = False
         logger.info(
             f"NPAD ingest complete: {progress['processed']} processed, "
             f"{progress['errors']} errors"
@@ -269,5 +294,6 @@ async def run_npad_ingest_with_progress(
 
     except Exception as e:
         progress["running"] = False
+        progress["stop_requested"] = False
         logger.error(f"NPAD ingest failed: {e}")
         raise
