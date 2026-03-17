@@ -66,78 +66,79 @@ export default function SyncPage() {
       </nav>
 
       <div style={{ maxWidth: '900px', margin: '0 auto', padding: '1.5rem 2rem 4rem' }}>
-        <Link href="/admin" className="inline-flex items-center gap-1 text-sm text-[var(--text-muted)] hover:text-[var(--teal)] mb-6 no-underline">
-          <ArrowLeft className="w-4 h-4" /> Back to Admin
+        <Link href="/admin" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem', fontSize: '0.875rem', color: 'var(--text-muted)', textDecoration: 'none', marginBottom: '1.5rem' }}>
+          <ArrowLeft style={{ width: '16px', height: '16px' }} /> Back to Admin
         </Link>
 
-        <h1 className="text-2xl mb-6" style={{ fontFamily: "'Playfair Display', serif" }}>Data Sync Controls</h1>
+        <h1 style={{ fontSize: '1.5rem', fontWeight: '600', marginBottom: '1.5rem', fontFamily: "'Playfair Display', serif" }}>Data Sync Controls</h1>
 
         {/* Sync Trigger */}
-        <div className="admin-card mb-6">
-          <h3 className="text-base font-semibold mb-4">Manual Sync</h3>
-          <p className="text-sm text-[var(--text-secondary)] mb-4">
+        <div className="admin-card" style={{ marginBottom: '1.5rem', padding: '1.5rem' }}>
+          <h3 style={{ fontSize: '1rem', fontWeight: '600', marginBottom: '0.75rem' }}>Manual Sync</h3>
+          <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', marginBottom: '1rem', lineHeight: '1.5' }}>
             Download latest DCC CSV files and upsert into database. Normally runs nightly at 2am.
           </p>
           <button
             className="btn-primary"
             onClick={handleTriggerSync}
             disabled={triggering}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}
           >
-            {triggering ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
+            {triggering ? <RefreshCw style={{ width: '16px', height: '16px', animation: 'spin 1s linear infinite' }} /> : <Play style={{ width: '16px', height: '16px' }} />}
             {triggering ? 'Syncing...' : 'Trigger Manual Sync Now'}
           </button>
           {message && (
-            <p className="text-sm text-green-600 mt-3">{message}</p>
+            <p style={{ fontSize: '0.875rem', color: '#16a34a', marginTop: '0.75rem' }}>{message}</p>
           )}
         </div>
 
         {/* Last Sync Status */}
         {syncStatus && (
-          <div className="admin-card mb-6">
-            <h3 className="text-base font-semibold mb-4">Last Sync</h3>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="admin-card" style={{ marginBottom: '1.5rem', padding: '1.5rem' }}>
+            <h3 style={{ fontSize: '1rem', fontWeight: '600', marginBottom: '1rem' }}>Last Sync</h3>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '1rem' }}>
               <div>
-                <div className="text-xs text-[var(--text-muted)] uppercase">Status</div>
-                <div className={`text-sm font-semibold ${syncStatus.status === 'completed' ? 'text-green-600' : syncStatus.status === 'running' ? 'text-blue-600' : 'text-red-600'}`}>
-                  {syncStatus.status === 'completed' && <CheckCircle className="w-4 h-4 inline mr-1" />}
-                  {syncStatus.status === 'failed' && <XCircle className="w-4 h-4 inline mr-1" />}
-                  {syncStatus.status === 'running' && <RefreshCw className="w-4 h-4 inline mr-1 animate-spin" />}
+                <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.25rem' }}>Status</div>
+                <div style={{ fontSize: '0.875rem', fontWeight: '600', color: syncStatus.status === 'completed' ? '#16a34a' : syncStatus.status === 'running' ? '#2563eb' : '#dc2626', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                  {syncStatus.status === 'completed' && <CheckCircle style={{ width: '16px', height: '16px' }} />}
+                  {syncStatus.status === 'failed' && <XCircle style={{ width: '16px', height: '16px' }} />}
+                  {syncStatus.status === 'running' && <RefreshCw style={{ width: '16px', height: '16px', animation: 'spin 1s linear infinite' }} />}
                   {syncStatus.status}
                 </div>
               </div>
               <div>
-                <div className="text-xs text-[var(--text-muted)] uppercase">Records</div>
-                <div className="text-sm font-semibold">{syncStatus.records_processed?.toLocaleString() || '—'}</div>
+                <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.25rem' }}>Records</div>
+                <div style={{ fontSize: '0.875rem', fontWeight: '600' }}>{syncStatus.records_processed?.toLocaleString() || '—'}</div>
               </div>
               <div>
-                <div className="text-xs text-[var(--text-muted)] uppercase">Started</div>
-                <div className="text-sm">{syncStatus.started_at ? new Date(syncStatus.started_at).toLocaleString() : '—'}</div>
+                <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.25rem' }}>Started</div>
+                <div style={{ fontSize: '0.875rem' }}>{syncStatus.started_at ? new Date(syncStatus.started_at).toLocaleString() : '—'}</div>
               </div>
               <div>
-                <div className="text-xs text-[var(--text-muted)] uppercase">Completed</div>
-                <div className="text-sm">{syncStatus.completed_at ? new Date(syncStatus.completed_at).toLocaleString() : '—'}</div>
+                <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.25rem' }}>Completed</div>
+                <div style={{ fontSize: '0.875rem' }}>{syncStatus.completed_at ? new Date(syncStatus.completed_at).toLocaleString() : '—'}</div>
               </div>
             </div>
             {syncStatus.error_message && (
-              <div className="mt-3 p-3 bg-red-50 rounded-lg text-sm text-red-700">{syncStatus.error_message}</div>
+              <div style={{ marginTop: '0.75rem', padding: '0.75rem', background: '#fef2f2', borderRadius: '8px', fontSize: '0.875rem', color: '#b91c1c' }}>{syncStatus.error_message}</div>
             )}
           </div>
         )}
 
         {/* Sync Logs */}
-        <div className="admin-card">
-          <h3 className="text-base font-semibold mb-4">Recent Sync Logs</h3>
+        <div className="admin-card" style={{ padding: '1.5rem' }}>
+          <h3 style={{ fontSize: '1rem', fontWeight: '600', marginBottom: '1rem' }}>Recent Sync Logs</h3>
           {logs.length === 0 ? (
-            <p className="text-sm text-[var(--text-muted)]">No sync logs yet</p>
+            <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>No sync logs yet</p>
           ) : (
-            <div className="space-y-2">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
               {logs.map((log: any, i: number) => (
-                <div key={log.id || i} className="flex items-center justify-between p-3 bg-[var(--warm-white)] rounded-lg text-sm">
-                  <div className="flex items-center gap-2">
-                    <span className={`w-2 h-2 rounded-full ${log.status === 'completed' ? 'bg-green-500' : log.status === 'running' ? 'bg-blue-500' : 'bg-red-500'}`} />
-                    <span className="font-medium">{log.sync_type || 'sync'}</span>
+                <div key={log.id || i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.75rem', background: 'var(--warm-white)', borderRadius: '8px', fontSize: '0.875rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <span style={{ width: '8px', height: '8px', borderRadius: '50%', flexShrink: 0, background: log.status === 'completed' ? '#22c55e' : log.status === 'running' ? '#3b82f6' : '#ef4444' }} />
+                    <span style={{ fontWeight: '500' }}>{log.sync_type || 'sync'}</span>
                   </div>
-                  <div className="flex items-center gap-4 text-[var(--text-muted)]">
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', color: 'var(--text-muted)', fontSize: '0.8rem' }}>
                     {log.records_processed != null && <span>{log.records_processed.toLocaleString()} records</span>}
                     <span>{log.started_at ? new Date(log.started_at).toLocaleString() : ''}</span>
                   </div>
