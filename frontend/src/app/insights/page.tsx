@@ -13,21 +13,41 @@ import {
   TONE_COLORS,
 } from '@/lib/api';
 
+const FALLBACK_POSTS = [
+  { slug: 'stepping-aside', title: 'Stepping Aside', subtitle: 'How to spend 6 years and millions of Euro building absolutely nothing.', published_at: '2025-12-09', substack_url: 'https://thebuildpod.substack.com/p/stepping-aside' },
+  { slug: 'judicially-review-this', title: 'Judicially Review THIS', subtitle: 'On reform of a truly mad system', published_at: '2025-10-24', substack_url: 'https://thebuildpod.substack.com/p/judicially-review-this' },
+  { slug: 'the-past-can-hurt', title: 'The Past Can Hurt', subtitle: 'But you can either run from it, or learn from it', published_at: '2025-11-17', substack_url: 'https://thebuildpod.substack.com/p/the-past-can-hurt' },
+  { slug: 'students-are-literally-the-future', title: 'Students are LITERALLY the future', subtitle: "I'm using literally correctly, unlike most people", published_at: '2025-09-13', substack_url: 'https://thebuildpod.substack.com/p/students-are-literally-the-future' },
+  { slug: 'froschmausekrieg', title: 'Froschmäusekrieg', subtitle: 'The Government, once again, has flubbed it.', published_at: '2025-07-10', substack_url: 'https://thebuildpod.substack.com/p/froschmausekrieg' },
+  { slug: 'manifesting', title: 'Manifesting', subtitle: 'If we believe really hard, maybe our housing wishes will come true.', published_at: '2025-06-15', substack_url: 'https://thebuildpod.substack.com/p/manifesting' },
+];
+
 export default function InsightsPage() {
   const [feed, setFeed] = useState<InsightsFeedResponse | null>(null);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
+  const [apiError, setApiError] = useState(false);
 
   useEffect(() => {
     setLoading(true);
+    setApiError(false);
     getInsightsFeed(page)
-      .then(setFeed)
-      .catch(console.error)
+      .then(data => {
+        if (data && data.posts && data.posts.length > 0) {
+          setFeed(data);
+        } else {
+          setApiError(true);
+        }
+      })
+      .catch(() => {
+        setApiError(true);
+      })
       .finally(() => setLoading(false));
   }, [page]);
 
   const featured = feed?.posts?.[0];
   const rest = feed?.posts?.slice(1) || [];
+  const showFallback = !loading && (apiError || (!feed || feed.posts.length === 0));
 
   return (
     <div className="insights-page">
@@ -118,11 +138,44 @@ export default function InsightsPage() {
           </div>
         )}
 
-        {!loading && rest.map((post) => (
+        {!loading && !showFallback && rest.map((post) => (
           <PostCard key={post.id} post={post} />
         ))}
 
-        {!loading && feed && feed.posts.length === 0 && (
+        {/* Fallback posts from Substack when API is down or empty */}
+        {showFallback && (
+          <>
+            <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '0.5rem 0 1rem' }}>
+              <p style={{ fontSize: '0.75rem', color: '#64748b', fontStyle: 'italic' }}>
+                Posts shown directly from The Build on Substack.
+              </p>
+            </div>
+            {FALLBACK_POSTS.map((post) => (
+              <a
+                key={post.slug}
+                href={post.substack_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ textDecoration: 'none', color: 'inherit' }}
+              >
+                <article className="post-card">
+                  <div className="card-body">
+                    <div className="card-meta">
+                      <span className="card-date">{formatDate(post.published_at)}</span>
+                    </div>
+                    <h4 className="card-title">{post.title}</h4>
+                    <p className="card-summary">{post.subtitle}</p>
+                    <span style={{ display: 'inline-block', marginTop: '0.75rem', fontSize: '0.75rem', color: '#60a5fa' }}>
+                      Read on Substack ↗
+                    </span>
+                  </div>
+                </article>
+              </a>
+            ))}
+          </>
+        )}
+
+        {!loading && !showFallback && feed && feed.posts.length === 0 && (
           <div className="empty-state">
             <p>No posts yet. Check back soon — The Build publishes 1-2 times per month.</p>
           </div>
