@@ -203,7 +203,7 @@ async def run_document_scraper_batch(
             DocumentScrapeStatus,
             Application.reg_ref == DocumentScrapeStatus.reg_ref,
         )
-        .where(DocumentScrapeStatus.id.is_(None))
+        .where(DocumentScrapeStatus.reg_ref.is_(None))
         .order_by(Application.apn_date.desc().nullslast())
         .limit(batch_size)
     )
@@ -218,9 +218,10 @@ async def run_document_scraper_batch(
             # Record scrape status
             scrape_status = DocumentScrapeStatus(
                 reg_ref=app.reg_ref,
-                scraped_at=datetime.utcnow(),
-                documents_found=count,
-                status="completed",
+                last_scraped=datetime.utcnow(),
+                doc_count=count,
+                scrape_status="done" if count > 0 else "no_docs",
+                portal_source="localgov" if (app.year and app.year >= 2024) else "agile",
             )
             db.add(scrape_status)
 
@@ -233,8 +234,23 @@ async def run_document_scraper_batch(
 
         except Exception as e:
             logger.error(f"Error scraping docs for {app.reg_ref}: {e}")
+
+            # Record failed scrape
+            try:
+                scrape_status = DocumentScrapeStatus(
+                    reg_ref=app.reg_ref,
+                    last_scraped=datetime.utcnow(),
+                    doc_count=0,
+                    scrape_status="failed",
+                    error_message=str(e)[:500],
+                )
+                db.add(scrape_status)
+            except Exception:
+                pass
+
             stats["failed"] += 1
 
     await db.commit()
     logger.info(f"Document scraper batch complete: {stats}")
     return stats
+
