@@ -17,6 +17,13 @@ export interface ApplicationSummary {
   lat: number | null;
   lng: number | null;
   relevance_score: number | null;
+  // Phase 2 national fields
+  planning_authority: string | null;
+  lifecycle_stage: string | null;
+  est_value_high: number | null;
+  significance_score: number | null;
+  num_residential_units: number | null;
+  floor_area: number | null;
 }
 
 export interface SearchResponse {
@@ -135,6 +142,11 @@ export interface SearchParams {
   lat?: number;
   lng?: number;
   radius_m?: number;
+  authority?: string;
+  lifecycle_stage?: string;
+  value_min?: number;
+  value_max?: number;
+  one_off_house?: boolean;
   sort?: string;
   page?: number;
   page_size?: number;
@@ -319,4 +331,126 @@ export function getPortalDocumentUrl(regRef: string, year: number | null): strin
     return `https://planning.localgov.ie/en/view-planning-applications?reference=${encodeURIComponent(regRef)}`;
   }
   return `https://planning.agileapplications.ie/dublincity/search-applications/?reg_ref=${encodeURIComponent(regRef)}`;
+}
+
+// ── Phase 2: National constants ────────────────────────────────────────
+
+export const IRISH_AUTHORITIES: Record<string, string[]> = {
+  Leinster: [
+    'Dublin City Council',
+    'Dún Laoghaire-Rathdown County Council',
+    'Fingal County Council',
+    'South Dublin County Council',
+    'Kildare County Council',
+    'Meath County Council',
+    'Wicklow County Council',
+    'Louth County Council',
+    'Wexford County Council',
+    'Carlow County Council',
+    'Kilkenny County Council',
+    'Laois County Council',
+    'Offaly County Council',
+    'Longford County Council',
+    'Westmeath County Council',
+  ],
+  Munster: [
+    'Cork City Council',
+    'Cork County Council',
+    'Kerry County Council',
+    'Limerick City & County Council',
+    'Tipperary County Council',
+    'Waterford City & County Council',
+    'Clare County Council',
+  ],
+  Connacht: [
+    'Galway City Council',
+    'Galway County Council',
+    'Mayo County Council',
+    'Roscommon County Council',
+    'Sligo County Council',
+    'Leitrim County Council',
+  ],
+  'Ulster (ROI)': [
+    'Donegal County Council',
+    'Cavan County Council',
+    'Monaghan County Council',
+  ],
+};
+
+export const LIFECYCLE_STAGES: Record<string, string> = {
+  submitted: 'Application Submitted',
+  registered: 'Registered',
+  further_info: 'Further Info Requested',
+  decided_granted: 'Granted',
+  decided_refused: 'Refused',
+  appealed: 'Under Appeal',
+  appeal_granted: 'Appeal Granted',
+  appeal_refused: 'Appeal Refused',
+  fsc_filed: 'FSC Filed — Construction Imminent',
+  under_construction: 'Under Construction',
+  complete: 'Complete',
+  expired: 'Permission Expired',
+};
+
+export const LIFECYCLE_COLORS: Record<string, string> = {
+  submitted: '#9ca3af',
+  registered: '#9ca3af',
+  further_info: '#f59e0b',
+  decided_granted: '#10b981',
+  decided_refused: '#ef4444',
+  appealed: '#f59e0b',
+  appeal_granted: '#10b981',
+  appeal_refused: '#ef4444',
+  fsc_filed: '#3b82f6',
+  under_construction: '#8b5cf6',
+  complete: '#06b6d4',
+  expired: '#6b7280',
+};
+
+export const VALUE_RANGES = [
+  { label: 'Any', value: '' },
+  { label: '€500k+', min: 500_000 },
+  { label: '€2m+', min: 2_000_000 },
+  { label: '€10m+', min: 10_000_000 },
+  { label: '€50m+', min: 50_000_000 },
+  { label: '€100m+', min: 100_000_000 },
+];
+
+export function formatValue(value: number | null): string {
+  if (!value) return '—';
+  if (value >= 1_000_000) return `€${(value / 1_000_000).toFixed(1)}m`;
+  if (value >= 1_000) return `€${(value / 1_000).toFixed(0)}k`;
+  return `€${value}`;
+}
+
+export interface DigestEntry {
+  reg_ref: string;
+  planning_authority: string;
+  location: string | null;
+  proposal: string | null;
+  applicant: string | null;
+  dev_category: string | null;
+  num_residential_units: number | null;
+  floor_area: number | null;
+  est_value_low: number | null;
+  est_value_high: number | null;
+  est_value_str: string | null;
+  est_value_basis: string | null;
+  decision: string | null;
+  decision_date: string | null;
+  link_app_details: string | null;
+  significance_score: number | null;
+  lifecycle_stage: string | null;
+}
+
+export interface DigestResponse {
+  week_start: string | null;
+  week_end: string | null;
+  generated_at: string | null;
+  total_entries: number;
+  entries: DigestEntry[];
+}
+
+export async function getLatestDigest(): Promise<DigestResponse> {
+  return fetchApi<DigestResponse>('/api/digest/latest');
 }

@@ -5,11 +5,12 @@ import Link from 'next/link';
 import {
   Search, MapPin, Filter, Download, ChevronDown,
   Building2, Calendar, Scale, ArrowUpDown, X, Settings,
-  Database, Map as MapIcon
+  Database, Map as MapIcon, TrendingUp
 } from 'lucide-react';
 import {
   searchApplications, SearchParams, ApplicationSummary, SearchResponse,
-  CATEGORY_LABELS, getDecisionColor, formatDate,
+  CATEGORY_LABELS, IRISH_AUTHORITIES, LIFECYCLE_STAGES, LIFECYCLE_COLORS,
+  VALUE_RANGES, getDecisionColor, formatDate, formatValue,
 } from '@/lib/api';
 
 const DECISIONS = [
@@ -25,6 +26,8 @@ const SORT_OPTIONS = [
   { value: 'date_desc', label: 'Newest First' },
   { value: 'date_asc', label: 'Oldest First' },
   { value: 'relevance', label: 'Most Relevant' },
+  { value: 'value_desc', label: 'Highest Value' },
+  { value: 'significance', label: 'Most Significant' },
 ];
 
 function getDecisionClass(decision: string | null): string {
@@ -60,6 +63,10 @@ export default function Home() {
   const [sort, setSort] = useState('date_desc');
   const [page, setPage] = useState(1);
   const [showFilters, setShowFilters] = useState(false);
+  // Phase 2 national filters
+  const [authority, setAuthority] = useState('');
+  const [lifecycleStage, setLifecycleStage] = useState('');
+  const [valueMin, setValueMin] = useState('');
 
   const [results, setResults] = useState<SearchResponse | null>(null);
   const [loading, setLoading] = useState(false);
@@ -107,6 +114,10 @@ export default function Home() {
       if (locationFilter) params.location = locationFilter;
       if (applicantFilter) params.applicant = applicantFilter;
       if (sort) params.sort = sort;
+      // Phase 2 national filters
+      if (authority) params.authority = authority;
+      if (lifecycleStage) params.lifecycle_stage = lifecycleStage;
+      if (valueMin) params.value_min = parseInt(valueMin);
 
       performSearch(params);
     }, 300);
@@ -114,7 +125,7 @@ export default function Home() {
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
-  }, [query, category, decision, yearFrom, yearTo, locationFilter, applicantFilter, sort, page, performSearch]);
+  }, [query, category, decision, yearFrom, yearTo, locationFilter, applicantFilter, sort, page, authority, lifecycleStage, valueMin, performSearch]);
 
   const clearFilters = () => {
     setQuery('');
@@ -126,9 +137,12 @@ export default function Home() {
     setApplicantFilter('');
     setSort('date_desc');
     setPage(1);
+    setAuthority('');
+    setLifecycleStage('');
+    setValueMin('');
   };
 
-  const hasActiveFilters = category || decision || yearFrom || yearTo || locationFilter || applicantFilter;
+  const hasActiveFilters = category || decision || yearFrom || yearTo || locationFilter || applicantFilter || authority || lifecycleStage || valueMin;
 
   const currentYear = new Date().getFullYear();
   const years = Array.from({ length: 25 }, (_, i) => currentYear - i);
@@ -149,6 +163,10 @@ export default function Home() {
               <MapIcon className="w-4 h-4" />
               <span className="hidden sm:inline">Map</span>
             </Link>
+            <Link href="/significant" className="nav-link">
+              <TrendingUp className="w-4 h-4" />
+              <span className="hidden sm:inline">Significant</span>
+            </Link>
             <Link href="/admin" className="nav-link">
               <Settings className="w-4 h-4" />
               <span className="hidden sm:inline">Admin</span>
@@ -161,12 +179,12 @@ export default function Home() {
       <section className="hero-gradient py-16 md:py-24">
         <div className="max-w-4xl mx-auto px-4 text-center">
           <h1 className="text-3xl md:text-5xl text-white mb-3" style={{ fontFamily: "'Playfair Display', serif" }}>
-            Dublin Planning
+            Irish Planning
             <span className="block text-[var(--teal)]">Intelligence</span>
           </h1>
           <p className="text-sm md:text-base text-white/50 mb-8 max-w-xl mx-auto font-light">
-            Search 200,000+ Dublin City Council planning applications.
-            AI-classified, company-enriched, and document-linked.
+            Search 650,000+ planning applications across all 31 Irish local authorities.
+            AI-classified, lifecycle-tracked, and value-estimated.
           </p>
 
           <div className="relative">
@@ -215,11 +233,48 @@ export default function Home() {
 
           <select
             className="filter-select"
+            value={authority}
+            onChange={(e) => { setAuthority(e.target.value); setPage(1); }}
+          >
+            <option value="">All Ireland</option>
+            {Object.entries(IRISH_AUTHORITIES).map(([province, councils]) => (
+              <optgroup key={province} label={province}>
+                {councils.map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </optgroup>
+            ))}
+          </select>
+
+          <select
+            className="filter-select"
             value={decision}
             onChange={(e) => { setDecision(e.target.value); setPage(1); }}
           >
             {DECISIONS.map(d => (
               <option key={d.value} value={d.value}>{d.label}</option>
+            ))}
+          </select>
+
+          <select
+            className="filter-select"
+            value={lifecycleStage}
+            onChange={(e) => { setLifecycleStage(e.target.value); setPage(1); }}
+          >
+            <option value="">All Stages</option>
+            {Object.entries(LIFECYCLE_STAGES).map(([key, label]) => (
+              <option key={key} value={key}>{label}</option>
+            ))}
+          </select>
+
+          <select
+            className="filter-select"
+            value={valueMin}
+            onChange={(e) => { setValueMin(e.target.value); setPage(1); }}
+          >
+            <option value="">Est. Value</option>
+            {VALUE_RANGES.filter(r => r.min).map((r) => (
+              <option key={r.label} value={r.min}>{r.label}</option>
             ))}
           </select>
 
@@ -232,21 +287,12 @@ export default function Home() {
             {years.map(y => <option key={y} value={y}>{y}</option>)}
           </select>
 
-          <select
-            className="filter-select"
-            value={yearTo}
-            onChange={(e) => { setYearTo(e.target.value); setPage(1); }}
-          >
-            <option value="">To Year</option>
-            {years.map(y => <option key={y} value={y}>{y}</option>)}
-          </select>
-
           <button
             className="btn-secondary"
             onClick={() => setShowFilters(!showFilters)}
           >
             <Filter className="w-4 h-4" />
-            More Filters
+            More
             <ChevronDown className={`w-3 h-3 transition-transform ${showFilters ? 'rotate-180' : ''}`} />
           </button>
 
@@ -356,6 +402,33 @@ export default function Home() {
                     <span className="text-xs text-[var(--text-muted)]">{app.applicant_name}</span>
                   </div>
                 )}
+
+                {/* Phase 2 fields */}
+                <div className="flex flex-wrap items-center gap-2 mt-2 ml-5">
+                  {app.planning_authority && (
+                    <span className="text-xs px-1.5 py-0.5 rounded bg-blue-50 text-blue-700" style={{ fontSize: '0.65rem' }}>
+                      {app.planning_authority}
+                    </span>
+                  )}
+                  {app.lifecycle_stage && (
+                    <span
+                      className="text-xs px-1.5 py-0.5 rounded text-white"
+                      style={{ backgroundColor: LIFECYCLE_COLORS[app.lifecycle_stage] || '#6b7280', fontSize: '0.65rem' }}
+                    >
+                      {LIFECYCLE_STAGES[app.lifecycle_stage] || app.lifecycle_stage}
+                    </span>
+                  )}
+                  {app.est_value_high && (
+                    <span className="text-xs font-semibold text-emerald-600" style={{ fontSize: '0.7rem' }}>
+                      {formatValue(app.est_value_high)}
+                    </span>
+                  )}
+                  {app.num_residential_units && app.num_residential_units > 0 && (
+                    <span className="text-xs text-[var(--text-muted)]">
+                      {app.num_residential_units} units
+                    </span>
+                  )}
+                </div>
               </div>
             </Link>
           ))}
@@ -426,10 +499,10 @@ export default function Home() {
       {/* ── Footer ──────────────────────────────────────── */}
       <footer className="border-t border-[var(--border)] py-8 mt-12">
         <div className="max-w-7xl mx-auto px-4 text-center text-xs text-[var(--text-muted)]">
-          <p>PlanSearch — Dublin Planning Intelligence Platform</p>
+          <p>PlanSearch — Irish National Planning Intelligence Platform</p>
           <p className="mt-1">
-            Data sourced from Dublin City Council Open Data (CC BY 4.0).
-            AI classification powered by Claude.
+            Data sourced from NPAD, BCMS, and DCC Open Data (CC BY 4.0).
+            AI classification and value estimation powered by Claude.
           </p>
         </div>
       </footer>
