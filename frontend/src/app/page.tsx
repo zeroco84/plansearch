@@ -415,9 +415,16 @@ export default function Home() {
                           </span>
                         )}
                         {app.est_value_high && (
-                          <span className="text-xs font-semibold text-emerald-600" style={{ fontSize: '0.7rem' }}>
+                          <a
+                            href="https://mitchellmcdermott.com/infocards/"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            title="Construction cost estimate based on Mitchell McDermott InfoCard benchmarks. Excludes VAT, site, fees and finance."
+                            onClick={e => e.stopPropagation()}
+                            style={{ fontSize: '0.7rem', fontWeight: '600', color: '#059669', textDecoration: 'none' }}
+                          >
                             {formatValue(app.est_value_high)}
-                          </span>
+                          </a>
                         )}
                         {app.num_residential_units && app.num_residential_units > 0 && (
                           <span className="text-xs text-[var(--text-muted)]">

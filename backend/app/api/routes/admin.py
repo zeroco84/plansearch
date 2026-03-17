@@ -422,6 +422,68 @@ async def get_logs(
     ]
 
 
+# ── Benchmarks (Mitchell McDermott) ──────────────────────────────────────
+
+@router.post("/admin/benchmarks/scrape")
+async def trigger_benchmark_scrape(
+    _token: str = Depends(verify_admin_token),
+    db: AsyncSession = Depends(get_db),
+):
+    """Trigger Mitchell McDermott InfoCard benchmark extraction.
+
+    Source: https://mitchellmcdermott.com/infocards/
+    """
+    asyncio.create_task(_run_benchmark_scrape_background())
+    return {
+        "status": "triggered",
+        "source": "Mitchell McDermott",
+        "source_url": "https://mitchellmcdermott.com/infocards/",
+    }
+
+
+async def _run_benchmark_scrape_background():
+    """Run benchmark scrape in background."""
+    from app.workers.benchmark_scraper import run_benchmark_scrape
+
+    async with async_session_factory() as db:
+        try:
+            stats = await run_benchmark_scrape(db)
+            _sse_events.append({
+                "event": "benchmark_complete",
+                "data": json.dumps(stats),
+            })
+        except Exception as e:
+            _sse_events.append({
+                "event": "benchmark_error",
+                "data": json.dumps({"error": str(e)}),
+            })
+
+
+@router.get("/admin/benchmarks")
+async def get_benchmarks(
+    _token: str = Depends(verify_admin_token),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get all stored Mitchell McDermott benchmarks.
+
+    Source: https://mitchellmcdermott.com/infocards/
+    """
+    result = await db.execute(text("""
+        SELECT id, building_type, cost_per_sqm_low, cost_per_sqm_high,
+               cost_per_unit_low, cost_per_unit_high, cost_basis,
+               infocard_name, valid_from, inflation_rate,
+               exclusions, inclusions, notes, extracted_at
+        FROM cost_benchmarks
+        ORDER BY valid_from DESC, building_type
+    """))
+    rows = result.fetchall()
+    return {
+        "source": "Mitchell McDermott",
+        "source_url": "https://mitchellmcdermott.com/infocards/",
+        "benchmarks": [dict(r._mapping) for r in rows],
+    }
+
+
 # ── SSE Stream ──────────────────────────────────────────────────────────
 
 @router.get("/admin/stream")

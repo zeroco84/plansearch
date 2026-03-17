@@ -237,6 +237,19 @@ export async function triggerBcmsSync(token: string) {
   });
 }
 
+export async function triggerBenchmarkScrape(token: string) {
+  return fetchApi('/api/admin/benchmarks/scrape', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+export async function getBenchmarks(token: string) {
+  return fetchApi('/api/admin/benchmarks', {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
 export async function getSyncStatus(token: string) {
   return fetchApi('/api/admin/sync/status', {
     headers: { Authorization: `Bearer ${token}` },
@@ -452,6 +465,7 @@ export interface DigestEntry {
   est_value_high: number | null;
   est_value_str: string | null;
   est_value_basis: string | null;
+  est_value_source_url: string | null;
   decision: string | null;
   decision_date: string | null;
   link_app_details: string | null;

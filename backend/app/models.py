@@ -370,17 +370,42 @@ class FSCApplication(Base):
 
 
 class CostBenchmark(Base):
-    """Admin-configurable construction cost benchmarks."""
+    """Construction cost benchmarks extracted from Mitchell McDermott InfoCards.
+
+    Source: https://mitchellmcdermott.com/infocards/
+    """
 
     __tablename__ = "cost_benchmarks"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    development_type = Column(String(100), unique=True, nullable=False)
-    unit_label = Column(String(20), nullable=False)
-    cost_low = Column(Integer, nullable=False)
-    cost_high = Column(Integer, nullable=False)
+    source_name = Column(String(100), default="Mitchell McDermott")
+    source_url = Column(Text, default="https://mitchellmcdermott.com/infocards/")
+    infocard_name = Column(String(200))
+    infocard_pdf_url = Column(Text)
+    extracted_at = Column(DateTime(timezone=True), server_default=func.now())
+    valid_from = Column(Date)
+    inflation_rate = Column(Float)
+
+    # Building type key — matches dev_category values in applications table
+    building_type = Column(String(100), index=True)
+
+    # Cost ranges
+    cost_per_sqm_low = Column(Integer)
+    cost_per_sqm_high = Column(Integer)
+    cost_per_unit_low = Column(Integer)
+    cost_per_unit_high = Column(Integer)
+    cost_basis = Column(String(20))  # "per_sqm" | "per_unit" | "both"
+
+    # What's included and excluded
+    inclusions = Column(ARRAY(String))
+    exclusions = Column(ARRAY(String))
     notes = Column(Text)
-    updated_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    # Raw extracted data for audit
+    raw_extracted_json = Column(JSONB)
+
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
 
 
 class WeeklyDigest(Base):

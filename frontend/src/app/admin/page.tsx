@@ -211,7 +211,7 @@ export default function AdminPage() {
                 </div>
                 <div>
                   <h3 className="text-base font-semibold text-[var(--text-primary)]">Data Sync</h3>
-                  <p className="text-xs text-[var(--text-muted)]">DCC CSV import & sync status</p>
+                  <p className="text-xs text-[var(--text-muted)]">NPAD & BCMS data sources</p>
                 </div>
               </div>
               <ChevronRight className="w-4 h-4 text-[var(--text-muted)]" />
@@ -222,6 +222,21 @@ export default function AdminPage() {
                 Last sync: {new Date(stats.last_sync).toLocaleString()}
               </div>
             )}
+          </Link>
+
+          <Link href="/admin/benchmarks" className="admin-card hover:border-[var(--teal)] transition-colors no-underline">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-emerald-50 rounded-lg flex items-center justify-center">
+                  <BarChart3 className="w-5 h-5 text-emerald-500" />
+                </div>
+                <div>
+                  <h3 className="text-base font-semibold text-[var(--text-primary)]">Cost Benchmarks</h3>
+                  <p className="text-xs text-[var(--text-muted)]">Mitchell McDermott InfoCard data</p>
+                </div>
+              </div>
+              <ChevronRight className="w-4 h-4 text-[var(--text-muted)]" />
+            </div>
           </Link>
 
           <Link href="/admin/classify" className="admin-card hover:border-[var(--teal)] transition-colors no-underline">
