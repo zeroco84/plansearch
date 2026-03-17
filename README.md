@@ -1,22 +1,29 @@
 # PlanSearch
 
-**Dublin Planning Intelligence Platform**
+**Irish National Planning Intelligence Platform**
 
-Search, classify, and explore 200,000+ Dublin City Council planning applications — AI-classified by development type, enriched with Companies Registration Office data, and linked to public documents across two planning portals.
+Search, classify, and explore 650,000+ planning applications across all 31 Irish local authorities — AI-classified by development type, lifecycle-tracked from submission to building completion, value-estimated using construction cost benchmarks, and enriched with Companies Registration Office data.
 
 ---
 
 ## Features
 
 - **Instant full-text search** — tsvector-powered search with trigram fuzzy matching across applications, addresses, applicants, and proposals
+- **National coverage** — 31 local authorities via NPAD ArcGIS integration (362k+ records), plus DCC CSV ingest
 - **Spatial search** — PostGIS proximity filtering ("show me everything within 500m of this point")
 - **AI classification** — Claude Haiku classifies each application into one of 14 development categories
+- **AI value estimation** — construction value estimation using Irish cost benchmarks (SCSI 2026)
+- **Significance scoring** — 0-100 score for commercial relevance of each application
+- **9-stage lifecycle tracking** — from submission through construction to building completion, cross-referencing BCMS data
+- **BCMS integration** — commencement notices, certificates of compliance, FSC/DAC applications
+- **Weekly digest** — automated significant approvals digest as RSS feed and JSON API
 - **Applicant name scraping** — rate-limited, off-peak scraper pulls applicant names from the Agile Applications portal
 - **CRO company enrichment** — matches company applicants against the Companies Registration Office
 - **Document metadata indexing** — scrapes document listings from both the legacy Agile portal (pre-Sep 2024) and the National Planning Portal (post-Sep 2024)
-- **Interactive map** — Leaflet / OpenStreetMap with colour-coded pins by decision status
+- **Interactive map** — Leaflet / OpenStreetMap with colour-coded pins by decision status and lifecycle stage
 - **Admin control centre** — token-protected dashboard for API key management, sync triggers, classification batches, and real-time progress via SSE
 - **CSV export** — download filtered search results as CSV (up to 10,000 rows)
+- **Significant page** — filterable view of high-value planning approvals sorted by estimated construction value
 
 ## Tech Stack
 
