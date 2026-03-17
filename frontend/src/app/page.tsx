@@ -499,7 +499,7 @@ export default function Home() {
                 if (yearTo) params.set('year_to', yearTo);
                 if (applicantFilter) params.set('applicant', applicantFilter);
                 if (locationFilter) params.set('location', locationFilter);
-                return `${process.env.NEXT_PUBLIC_API_URL || ''}/api/export/csv?${params.toString()}`;
+                return `https://api.plansearch.cc/api/export/csv?${params.toString()}`;
               })()}
               target="_blank"
               rel="noopener noreferrer"

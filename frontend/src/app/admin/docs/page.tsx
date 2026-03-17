@@ -4,7 +4,11 @@ import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { Database, ArrowLeft, FileText, Play, Pause, RefreshCw } from 'lucide-react';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const API_BASE = typeof window === 'undefined'
+  ? 'https://api.plansearch.cc'
+  : (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+    ? 'http://localhost:8000'
+    : 'https://api.plansearch.cc';
 
 export default function DocsPage() {
   const [token, setToken] = useState('');
