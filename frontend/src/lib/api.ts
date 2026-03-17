@@ -223,6 +223,20 @@ export async function triggerSync(token: string) {
   });
 }
 
+export async function triggerNpadSync(token: string) {
+  return fetchApi('/api/admin/sync/npad', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+export async function triggerBcmsSync(token: string) {
+  return fetchApi('/api/admin/sync/bcms', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
 export async function getSyncStatus(token: string) {
   return fetchApi('/api/admin/sync/status', {
     headers: { Authorization: `Bearer ${token}` },

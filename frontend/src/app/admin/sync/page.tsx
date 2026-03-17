@@ -2,14 +2,15 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Database, ArrowLeft, RefreshCw, Play, CheckCircle, XCircle, Clock, Settings, Search, TrendingUp, BookOpen, Map as MapIcon } from 'lucide-react';
-import { triggerSync, getSyncStatus, getAdminLogs } from '@/lib/api';
+import { Database, ArrowLeft, RefreshCw, Play, CheckCircle, XCircle, Clock, Settings, Search, TrendingUp, BookOpen, Map as MapIcon, Building2 } from 'lucide-react';
+import { triggerNpadSync, triggerBcmsSync, getSyncStatus, getAdminLogs } from '@/lib/api';
 
 export default function SyncPage() {
   const [token, setToken] = useState('');
   const [syncStatus, setSyncStatus] = useState<any>(null);
   const [logs, setLogs] = useState<any[]>([]);
-  const [triggering, setTriggering] = useState(false);
+  const [triggeringNpad, setTriggeringNpad] = useState(false);
+  const [triggeringBcms, setTriggeringBcms] = useState(false);
   const [message, setMessage] = useState('');
 
   useEffect(() => {
@@ -33,17 +34,31 @@ export default function SyncPage() {
     }
   };
 
-  const handleTriggerSync = async () => {
-    setTriggering(true);
+  const handleNpadSync = async () => {
+    setTriggeringNpad(true);
     setMessage('');
     try {
-      const result = await triggerSync(token) as any;
-      setMessage(result.message || 'Sync triggered successfully');
-      setTimeout(() => loadData(token), 3000);
+      const result = await triggerNpadSync(token) as any;
+      setMessage(result.message || 'NPAD sync triggered');
+      setTimeout(() => loadData(token), 5000);
     } catch (err) {
-      setMessage('Failed to trigger sync');
+      setMessage('Failed to trigger NPAD sync');
     } finally {
-      setTriggering(false);
+      setTriggeringNpad(false);
+    }
+  };
+
+  const handleBcmsSync = async () => {
+    setTriggeringBcms(true);
+    setMessage('');
+    try {
+      const result = await triggerBcmsSync(token) as any;
+      setMessage(result.message || 'BCMS sync triggered');
+      setTimeout(() => loadData(token), 5000);
+    } catch (err) {
+      setMessage('Failed to trigger BCMS sync');
+    } finally {
+      setTriggeringBcms(false);
     }
   };
 
@@ -72,24 +87,52 @@ export default function SyncPage() {
 
         <h1 style={{ fontSize: '1.5rem', fontWeight: '600', marginBottom: '1.5rem', fontFamily: "'Playfair Display', serif" }}>Data Sync Controls</h1>
 
-        {/* Sync Trigger */}
+        {message && (
+          <div style={{ marginBottom: '1rem', padding: '0.75rem 1rem', background: '#ecfdf5', borderRadius: '8px', fontSize: '0.875rem', color: '#065f46', border: '1px solid #a7f3d0' }}>
+            {message}
+          </div>
+        )}
+
+        {/* NPAD Sync */}
         <div className="admin-card" style={{ marginBottom: '1.5rem', padding: '1.5rem' }}>
-          <h3 style={{ fontSize: '1rem', fontWeight: '600', marginBottom: '0.75rem' }}>Manual Sync</h3>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem' }}>
+            <Database style={{ width: '18px', height: '18px', color: 'var(--teal)' }} />
+            <h3 style={{ fontSize: '1rem', fontWeight: '600', margin: 0 }}>NPAD — Planning Applications</h3>
+          </div>
           <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', marginBottom: '1rem', lineHeight: '1.5' }}>
-            Download latest DCC CSV files and upsert into database. Normally runs nightly at 2am.
+            Download all Irish planning applications from the National Planning Application Database (NPAD) ArcGIS API.
+            Covers 30/31 local authorities, ~362,000 applications. Updated weekly.
           </p>
           <button
             className="btn-primary"
-            onClick={handleTriggerSync}
-            disabled={triggering}
+            onClick={handleNpadSync}
+            disabled={triggeringNpad}
             style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}
           >
-            {triggering ? <RefreshCw style={{ width: '16px', height: '16px', animation: 'spin 1s linear infinite' }} /> : <Play style={{ width: '16px', height: '16px' }} />}
-            {triggering ? 'Syncing...' : 'Trigger Manual Sync Now'}
+            {triggeringNpad ? <RefreshCw style={{ width: '16px', height: '16px', animation: 'spin 1s linear infinite' }} /> : <Play style={{ width: '16px', height: '16px' }} />}
+            {triggeringNpad ? 'Syncing...' : 'Trigger NPAD Sync'}
           </button>
-          {message && (
-            <p style={{ fontSize: '0.875rem', color: '#16a34a', marginTop: '0.75rem' }}>{message}</p>
-          )}
+        </div>
+
+        {/* BCMS Sync */}
+        <div className="admin-card" style={{ marginBottom: '1.5rem', padding: '1.5rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem' }}>
+            <Building2 style={{ width: '18px', height: '18px', color: '#f59e0b' }} />
+            <h3 style={{ fontSize: '1rem', fontWeight: '600', margin: 0 }}>BCMS — Building Control</h3>
+          </div>
+          <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', marginBottom: '1rem', lineHeight: '1.5' }}>
+            Download commencement notices and Fire Safety Certificate applications from the Building Control Management System.
+            Links construction activity to planning permissions and updates lifecycle stages.
+          </p>
+          <button
+            className="btn-primary"
+            onClick={handleBcmsSync}
+            disabled={triggeringBcms}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', background: '#f59e0b' }}
+          >
+            {triggeringBcms ? <RefreshCw style={{ width: '16px', height: '16px', animation: 'spin 1s linear infinite' }} /> : <Play style={{ width: '16px', height: '16px' }} />}
+            {triggeringBcms ? 'Syncing...' : 'Trigger BCMS Sync'}
+          </button>
         </div>
 
         {/* Last Sync Status */}
@@ -97,6 +140,10 @@ export default function SyncPage() {
           <div className="admin-card" style={{ marginBottom: '1.5rem', padding: '1.5rem' }}>
             <h3 style={{ fontSize: '1rem', fontWeight: '600', marginBottom: '1rem' }}>Last Sync</h3>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '1rem' }}>
+              <div>
+                <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.25rem' }}>Source</div>
+                <div style={{ fontSize: '0.875rem', fontWeight: '600' }}>{syncStatus.sync_type || '—'}</div>
+              </div>
               <div>
                 <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.25rem' }}>Status</div>
                 <div style={{ fontSize: '0.875rem', fontWeight: '600', color: syncStatus.status === 'completed' ? '#16a34a' : syncStatus.status === 'running' ? '#2563eb' : '#dc2626', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
@@ -113,10 +160,6 @@ export default function SyncPage() {
               <div>
                 <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.25rem' }}>Started</div>
                 <div style={{ fontSize: '0.875rem' }}>{syncStatus.started_at ? new Date(syncStatus.started_at).toLocaleString() : '—'}</div>
-              </div>
-              <div>
-                <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.25rem' }}>Completed</div>
-                <div style={{ fontSize: '0.875rem' }}>{syncStatus.completed_at ? new Date(syncStatus.completed_at).toLocaleString() : '—'}</div>
               </div>
             </div>
             {syncStatus.error_message && (

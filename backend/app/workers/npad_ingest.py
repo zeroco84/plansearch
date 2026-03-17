@@ -1,310 +1,217 @@
 """PlanSearch — NPAD ArcGIS Ingest Worker.
 
-Ingests planning applications from the National Planning Application Database
-(NPAD) ArcGIS Feature Service. Covers 30 of 31 Irish local authorities.
-
-API: https://services.arcgis.com/NzlPQPKn5QF9v2US/arcgis/rest/services/
-     IrishPlanningApplications/FeatureServer/0
+National Planning Application Database — covers 30/31 local authorities.
+~362,000 applications, updated weekly, CC BY 4.0, no auth required.
 """
 
-import asyncio
 import logging
-import re
-from datetime import datetime, date
+from datetime import datetime
 from typing import Optional
 
 import httpx
-from sqlalchemy import select, func, text
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.dialects.postgresql import insert as pg_insert
 
-from app.config import get_settings
-from app.models import Application, SyncLog
+from app.models import SyncLog
+from app.utils.text_clean import clean_text, normalise_reg_ref, normalise_decision
 
 logger = logging.getLogger(__name__)
-settings = get_settings()
 
-NPAD_URL = (
-    "https://services.arcgis.com/NzlPQPKn5QF9v2US/arcgis/rest/services/"
-    "IrishPlanningApplications/FeatureServer/0/query"
+NPAD_BASE = (
+    "https://services.arcgis.com/NzlPQPKn5QF9v2US/arcgis/rest/services"
+    "/IrishPlanningApplications/FeatureServer/0"
 )
-
 PAGE_SIZE = 2000
 
+HEADERS = {
+    "User-Agent": "Mozilla/5.0 (compatible; PlanSearch/1.0; +https://plansearch.cc)",
+    "Accept": "application/json",
+}
 
-def normalise_ref(raw_ref: Optional[str]) -> Optional[str]:
-    """Normalise planning reference numbers for cross-dataset joining.
 
-    Handles variations like:
-        'FRL/2023/12345' (DCC format)
-        '23/1234'        (short county council format)
-        'D23A/1234'      (Dublin with area code)
-        'PL 12345'       (ABP reference)
-    """
-    if not raw_ref:
+def safe_str(val) -> Optional[str]:
+    if val is None or str(val).strip() in ("", "None", "nan", "null"):
         return None
-    ref = raw_ref.strip().upper()
-    # Remove extra whitespace, normalise separators
-    ref = re.sub(r'\s+', '', ref)
-    return ref
+    return str(val).strip()
 
 
-def epoch_to_date(epoch_ms: Optional[int]) -> Optional[date]:
-    """Convert ArcGIS epoch milliseconds to Python date."""
-    if not epoch_ms:
+def safe_date(val):
+    """Parse NPAD date (Unix ms timestamp) to Python date."""
+    if val is None:
         return None
     try:
-        return datetime.utcfromtimestamp(epoch_ms / 1000).date()
-    except (ValueError, OSError):
-        return None
+        if isinstance(val, (int, float)) and val > 0:
+            return datetime.utcfromtimestamp(val / 1000).date()
+    except Exception:
+        pass
+    return None
 
 
-def map_npad_feature(feature: dict) -> dict:
-    """Map an NPAD ArcGIS feature to our Application model fields."""
-    attrs = feature.get("attributes", {})
-    geom = feature.get("geometry", {})
+async def fetch_npad_page(client: httpx.AsyncClient, offset: int) -> list:
+    """Fetch one page of NPAD records."""
+    params = {
+        "where": "1=1",
+        "outFields": "*",
+        "resultRecordCount": PAGE_SIZE,
+        "resultOffset": offset,
+        "f": "json",
+    }
+    r = await client.get(f"{NPAD_BASE}/query", params=params, timeout=60.0)
+    r.raise_for_status()
+    data = r.json()
+    return [f["attributes"] for f in data.get("features", [])]
 
-    # Build applicant_name from forename + surname
-    forename = (attrs.get("ApplicantForename") or "").strip()
-    surname = (attrs.get("ApplicantSurname") or "").strip()
-    applicant_name = f"{forename} {surname}".strip() or None
 
-    # Extract year from received date
-    received_date = epoch_to_date(attrs.get("ReceivedDate"))
+async def upsert_npad_record(db: AsyncSession, attrs: dict) -> bool:
+    """Upsert a single NPAD record into the applications table."""
+    reg_ref = safe_str(attrs.get("AppRegRef") or attrs.get("ReferenceNumber"))
+    if not reg_ref:
+        return False
+    reg_ref = normalise_reg_ref(reg_ref)
 
-    return {
-        "reg_ref": normalise_ref(attrs.get("ApplicationNumber")),
-        "planning_authority": attrs.get("PlanningAuthority"),
-        "proposal": attrs.get("DevelopmentDescription"),
-        "location": attrs.get("DevelopmentAddress"),
-        "eircode": attrs.get("DevelopmentPostcode"),
-        "app_type": attrs.get("ApplicationType"),
-        "stage": attrs.get("ApplicationStatus"),
-        "decision": attrs.get("Decision"),
-        "land_use_code": attrs.get("LandUseCode"),
-        "area_of_site": attrs.get("AreaofSite"),
-        "num_residential_units": attrs.get("NumResidentialUnits"),
-        "floor_area": attrs.get("FloorArea"),
+    forename = safe_str(attrs.get("ApplicantForename"))
+    surname = safe_str(attrs.get("ApplicantSurname"))
+    full_name = " ".join(filter(None, [forename, surname])) or None
+
+    values = {
+        "reg_ref": reg_ref,
+        "planning_authority": safe_str(
+            attrs.get("LocalAuthority") or attrs.get("PlanningAuthority")
+        ),
+        "applicant_forename": forename,
+        "applicant_surname": surname,
+        "applicant_name": full_name,
+        "proposal": clean_text(
+            safe_str(attrs.get("Development") or attrs.get("Description"))
+        ),
+        "location": clean_text(
+            safe_str(attrs.get("Location") or attrs.get("Address"))
+        ),
+        "decision": normalise_decision(safe_str(attrs.get("Decision")) or ""),
+        "apn_date": safe_date(
+            attrs.get("ReceivedDate") or attrs.get("ApplicationDate")
+        ),
+        "rgn_date": safe_date(attrs.get("RegisteredDate")),
+        "dec_date": safe_date(attrs.get("DecisionDate")),
+        "app_type": safe_str(attrs.get("ApplicationType")),
+        "land_use_code": safe_str(attrs.get("LandUseCode")),
+        "floor_area": float(attrs["FloorArea"]) if attrs.get("FloorArea") else None,
+        "num_residential_units": (
+            int(attrs["NumResidentialUnits"])
+            if attrs.get("NumResidentialUnits")
+            else None
+        ),
+        "area_of_site": (
+            float(attrs["AreaofSite"]) if attrs.get("AreaofSite") else None
+        ),
         "one_off_house": bool(attrs.get("OneOffHouse")),
-        "applicant_forename": forename or None,
-        "applicant_surname": surname or None,
-        "applicant_name": applicant_name,
-        "applicant_address": attrs.get("ApplicantAddress"),
-        "link_app_details": attrs.get("LinkAppDetails"),
-        "npad_object_id": attrs.get("OBJECTID"),
-        "data_source": "npad_arcgis",
-        # Dates
-        "apn_date": received_date,
-        "rgn_date": epoch_to_date(attrs.get("RegistrationDate")),
-        "dec_date": epoch_to_date(attrs.get("DecisionDate")),
-        "final_grant_date": epoch_to_date(attrs.get("GrantDate")),
-        "time_exp": epoch_to_date(attrs.get("ExpiryDate")),
-        # Appeals (richer than Phase 1)
-        "appeal_ref_number": attrs.get("AppealRefNumber"),
-        "appeal_status": attrs.get("AppealStatus"),
-        "appeal_decision": attrs.get("AppealDecision"),
-        "appeal_decision_date": epoch_to_date(attrs.get("AppealDecisionDate")),
-        # Further info
-        "fi_request_date": epoch_to_date(attrs.get("FIRequestDate")),
-        "fi_rec_date": epoch_to_date(attrs.get("FIRecDate")),
-        # Geometry (NPAD returns WGS84 when outSR=4326)
-        "itm_easting": attrs.get("ITMEasting"),
-        "itm_northing": attrs.get("ITMNorthing"),
+        "link_app_details": safe_str(attrs.get("LinkAppDetails")),
+        "npad_object_id": (
+            int(attrs["OBJECTID"]) if attrs.get("OBJECTID") else None
+        ),
+        "data_source": "npad",
     }
 
+    lat = attrs.get("Latitude") or attrs.get("lat")
+    lng = attrs.get("Longitude") or attrs.get("lon") or attrs.get("lng")
 
-async def get_record_count() -> int:
-    """Get total record count from NPAD."""
-    async with httpx.AsyncClient(timeout=30.0) as client:
-        resp = await client.get(NPAD_URL, params={
-            "where": "1=1",
-            "returnCountOnly": "true",
-            "f": "json",
-        })
-        data = resp.json()
-        return data.get("count", 0)
+    # Clean None/nan strings
+    for k in list(values.keys()):
+        if isinstance(values[k], str) and values[k] in ("nan", "None", "null", ""):
+            values[k] = None
+
+    try:
+        cols = list(values.keys())
+        placeholders = [f":{k}" for k in cols]
+        update_parts = [f"{k} = EXCLUDED.{k}" for k in cols if k != "reg_ref"]
+
+        if lat and lng:
+            lat, lng = float(lat), float(lng)
+            sql = text(f"""
+                INSERT INTO applications ({', '.join(cols)}, location_point)
+                VALUES ({', '.join(placeholders)},
+                        ST_SetSRID(ST_MakePoint({lng}, {lat}), 4326))
+                ON CONFLICT (reg_ref) DO UPDATE SET
+                    {', '.join(update_parts)},
+                    location_point = EXCLUDED.location_point
+            """)
+        else:
+            sql = text(f"""
+                INSERT INTO applications ({', '.join(cols)})
+                VALUES ({', '.join(placeholders)})
+                ON CONFLICT (reg_ref) DO UPDATE SET {', '.join(update_parts)}
+            """)
+
+        await db.execute(sql, values)
+        return True
+    except Exception as e:
+        logger.error(f"Error upserting {reg_ref}: {e}")
+        return False
 
 
-async def fetch_page(offset: int, where: str = "1=1") -> list[dict]:
-    """Fetch a single page of NPAD features."""
-    async with httpx.AsyncClient(timeout=60.0) as client:
-        resp = await client.get(NPAD_URL, params={
-            "where": where,
-            "outFields": "*",
-            "returnGeometry": "true",
-            "outSR": "4326",
-            "f": "json",
-            "resultOffset": offset,
-            "resultRecordCount": PAGE_SIZE,
-            "orderByFields": "OBJECTID ASC",
-        })
-        data = resp.json()
-        return data.get("features", [])
-
-
-async def upsert_npad_batch(
-    features: list[dict],
-    db: AsyncSession,
+async def run_npad_ingest(
+    db: AsyncSession, limit: Optional[int] = None
 ) -> dict:
-    """Upsert a batch of NPAD features into the applications table.
+    """Run the full NPAD ingest pipeline.
 
-    Uses PostgreSQL ON CONFLICT to update existing records only if
-    data_source is 'npad_arcgis' or the record is new.
+    Paginates through the ArcGIS REST API in pages of 2000 records.
+    Total dataset is ~362,000 applications across 31 local authorities.
     """
-    stats = {"new": 0, "updated": 0, "skipped": 0}
+    logger.info("Starting NPAD ingest...")
 
-    for feature in features:
-        mapped = map_npad_feature(feature)
-
-        if not mapped["reg_ref"]:
-            stats["skipped"] += 1
-            continue
-
-        # Build WKT point from geometry
-        geom = feature.get("geometry", {})
-        lng = geom.get("x")
-        lat = geom.get("y")
-        location_point_wkt = f"SRID=4326;POINT({lng} {lat})" if lng and lat else None
-
-        stmt = pg_insert(Application).values(
-            **mapped,
-            location_point=text(f"ST_GeomFromEWKT('{location_point_wkt}')") if location_point_wkt else None,
-        )
-
-        # On conflict: update if record was from NPAD or has no source
-        update_dict = {k: v for k, v in mapped.items() if k != "reg_ref" and v is not None}
-        if location_point_wkt:
-            update_dict["location_point"] = text(f"ST_GeomFromEWKT('{location_point_wkt}')")
-        update_dict["updated_at"] = func.now()
-
-        stmt = stmt.on_conflict_do_update(
-            index_elements=["reg_ref"],
-            set_=update_dict,
-            where=(
-                (Application.data_source == "npad_arcgis") |
-                (Application.data_source.is_(None))
-            ),
-        )
-
-        try:
-            result = await db.execute(stmt)
-            if result.rowcount > 0:
-                stats["new"] += 1
-            else:
-                stats["updated"] += 1
-        except Exception as e:
-            logger.warning(f"Error upserting {mapped['reg_ref']}: {e}")
-            stats["skipped"] += 1
-
-    return stats
-
-
-async def ingest_npad_full(db: AsyncSession) -> dict:
-    """Full NPAD ingestion: paginate through all 362k+ records."""
-    total = await get_record_count()
-    logger.info(f"NPAD: Starting full ingest of {total:,} records")
-
-    sync_log = SyncLog(
-        sync_type="npad_full",
-        status="running",
-    )
+    sync_log = SyncLog(sync_type="npad_ingest", status="running")
     db.add(sync_log)
-    await db.commit()
+    await db.flush()
 
-    offset = 0
-    all_stats = {"new": 0, "updated": 0, "skipped": 0, "total": total}
+    stats = {"processed": 0, "errors": 0}
 
-    while offset < total:
-        try:
-            features = await fetch_page(offset)
+    try:
+        async with httpx.AsyncClient(
+            headers=HEADERS, follow_redirects=True
+        ) as client:
+            offset = 0
+            while True:
+                logger.info(f"Fetching NPAD page at offset {offset}...")
+                records = await fetch_npad_page(client, offset)
 
-            if not features:
-                logger.warning(f"NPAD: Empty page at offset {offset}")
-                break
+                if not records:
+                    logger.info("No more records — ingest complete")
+                    break
 
-            batch_stats = await upsert_npad_batch(features, db)
-            all_stats["new"] += batch_stats["new"]
-            all_stats["updated"] += batch_stats["updated"]
-            all_stats["skipped"] += batch_stats["skipped"]
+                for attrs in records:
+                    ok = await upsert_npad_record(db, attrs)
+                    if ok:
+                        stats["processed"] += 1
+                    else:
+                        stats["errors"] += 1
 
-            await db.commit()
+                    if stats["processed"] % 500 == 0 and stats["processed"] > 0:
+                        await db.commit()
+                        logger.info(f"Committed {stats['processed']} records...")
 
-            offset += PAGE_SIZE
-            pages_done = offset // PAGE_SIZE
-            logger.info(
-                f"NPAD: Page {pages_done} ({offset:,}/{total:,}) — "
-                f"{all_stats['new']} new, {all_stats['updated']} updated"
-            )
+                    if limit and stats["processed"] >= limit:
+                        break
 
-            # Gentle rate limit — 1 req/sec
-            await asyncio.sleep(1.0)
+                await db.commit()
+                offset += PAGE_SIZE
 
-        except Exception as e:
-            logger.error(f"NPAD: Error at offset {offset}: {e}")
-            await asyncio.sleep(5.0)
-            continue
+                if len(records) < PAGE_SIZE:
+                    break
+                if limit and stats["processed"] >= limit:
+                    break
 
-    # Update sync log
-    sync_log.completed_at = datetime.utcnow()
-    sync_log.records_processed = all_stats["new"] + all_stats["updated"]
-    sync_log.records_new = all_stats["new"]
-    sync_log.records_updated = all_stats["updated"]
-    sync_log.status = "completed"
-    await db.commit()
-
-    logger.info(f"NPAD: Full ingest complete — {all_stats}")
-    return all_stats
-
-
-async def ingest_npad_incremental(db: AsyncSession) -> dict:
-    """Incremental NPAD sync: only records updated since last sync.
-
-    Uses ETL_DATE field which tracks when each record was last touched.
-    """
-    # Find last successful NPAD sync
-    result = await db.execute(
-        select(SyncLog.completed_at)
-        .where(SyncLog.sync_type.in_(["npad_full", "npad_incremental"]))
-        .where(SyncLog.status == "completed")
-        .order_by(SyncLog.completed_at.desc())
-        .limit(1)
-    )
-    last_sync = result.scalar()
-
-    if not last_sync:
-        logger.info("NPAD: No previous sync found, running full ingest")
-        return await ingest_npad_full(db)
-
-    where = f"ETL_DATE > DATE '{last_sync.strftime('%Y-%m-%d')}'"
-    logger.info(f"NPAD: Incremental sync since {last_sync.date()}")
-
-    sync_log = SyncLog(sync_type="npad_incremental", status="running")
-    db.add(sync_log)
-    await db.commit()
-
-    offset = 0
-    all_stats = {"new": 0, "updated": 0, "skipped": 0}
-
-    while True:
-        features = await fetch_page(offset, where=where)
-        if not features:
-            break
-
-        batch_stats = await upsert_npad_batch(features, db)
-        all_stats["new"] += batch_stats["new"]
-        all_stats["updated"] += batch_stats["updated"]
-        all_stats["skipped"] += batch_stats["skipped"]
-
+        sync_log.status = "completed"
+        sync_log.completed_at = datetime.utcnow()
+        sync_log.records_processed = stats["processed"]
         await db.commit()
-        offset += PAGE_SIZE
-        await asyncio.sleep(1.0)
 
-    sync_log.completed_at = datetime.utcnow()
-    sync_log.records_processed = all_stats["new"] + all_stats["updated"]
-    sync_log.records_new = all_stats["new"]
-    sync_log.records_updated = all_stats["updated"]
-    sync_log.status = "completed"
-    await db.commit()
+        logger.info(f"NPAD ingest complete: {stats}")
+        return stats
 
-    logger.info(f"NPAD: Incremental sync complete — {all_stats}")
-    return all_stats
+    except Exception as e:
+        sync_log.status = "failed"
+        sync_log.error_message = str(e)
+        sync_log.completed_at = datetime.utcnow()
+        await db.commit()
+        logger.error(f"NPAD ingest failed: {e}")
+        raise

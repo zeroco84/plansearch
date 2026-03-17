@@ -10,8 +10,10 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import get_settings
+from app.database import engine, Base
 from app.api.routes import search, applications, map, stats, admin, export, docs, digest
 from app.api.routes import insights, advertising
+from app import models  # noqa: F401 — ensure all models are registered
 
 logging.basicConfig(
     level=logging.INFO,
@@ -23,7 +25,9 @@ settings = get_settings()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Application lifespan handler."""
+    """Application lifespan handler — creates missing tables on startup."""
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
     logger.info(f"PlanSearch API v{settings.app_version} starting...")
     yield
     logger.info("PlanSearch API shutting down...")
