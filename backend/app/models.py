@@ -34,7 +34,7 @@ class Application(Base):
     __tablename__ = "applications"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    reg_ref = Column(String(20), unique=True, nullable=False, index=True)
+    reg_ref = Column(String(100), unique=True, nullable=False, index=True)
     year = Column(Integer, Computed("EXTRACT(YEAR FROM apn_date)::INTEGER", persisted=True))
 
     apn_date = Column(Date)
@@ -135,7 +135,7 @@ class Appeal(Base):
     __tablename__ = "appeals"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    reg_ref = Column(String(20), ForeignKey("applications.reg_ref", ondelete="CASCADE"))
+    reg_ref = Column(String(100), ForeignKey("applications.reg_ref", ondelete="CASCADE"))
     appeal_ref = Column(String(30))
     appeal_date = Column(Date)
     appellant = Column(Text)
@@ -152,7 +152,7 @@ class FurtherInfo(Base):
     __tablename__ = "further_info"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    reg_ref = Column(String(20), ForeignKey("applications.reg_ref", ondelete="CASCADE"))
+    reg_ref = Column(String(100), ForeignKey("applications.reg_ref", ondelete="CASCADE"))
     fi_date = Column(Date)
     fi_type = Column(String(50))
     fi_response_date = Column(Date)
@@ -212,7 +212,7 @@ class ScrapeJob(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     job_type = Column(String(50), nullable=False)
-    reg_ref = Column(String(20))
+    reg_ref = Column(String(100))
     status = Column(String(20), default="pending")
     attempts = Column(Integer, default=0)
     last_error = Column(Text)
@@ -242,7 +242,7 @@ class ApplicationDocument(Base):
     __tablename__ = "application_documents"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    reg_ref = Column(String(20), ForeignKey("applications.reg_ref", ondelete="CASCADE"))
+    reg_ref = Column(String(100), ForeignKey("applications.reg_ref", ondelete="CASCADE"))
     doc_name = Column(Text, nullable=False)
     doc_type = Column(String(100))
     file_extension = Column(String(10))
@@ -269,7 +269,7 @@ class DocumentScrapeStatus(Base):
 
     __tablename__ = "document_scrape_status"
 
-    reg_ref = Column(String(20), ForeignKey("applications.reg_ref"), primary_key=True)
+    reg_ref = Column(String(100), ForeignKey("applications.reg_ref"), primary_key=True)
     portal_source = Column(String(20))
     scrape_status = Column(String(20), default="pending")
     doc_count = Column(Integer, default=0)

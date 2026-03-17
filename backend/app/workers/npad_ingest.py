@@ -64,7 +64,7 @@ async def fetch_npad_page(client: httpx.AsyncClient, offset: int) -> list:
 
 async def upsert_npad_record(db: AsyncSession, attrs: dict) -> bool:
     """Upsert a single NPAD record into the applications table."""
-    reg_ref = safe_str(attrs.get("AppRegRef") or attrs.get("ReferenceNumber"))
+    reg_ref = safe_str(attrs.get("ApplicationNumber"))
     if not reg_ref:
         return False
     reg_ref = normalise_reg_ref(reg_ref)
@@ -73,47 +73,47 @@ async def upsert_npad_record(db: AsyncSession, attrs: dict) -> bool:
     surname = safe_str(attrs.get("ApplicantSurname"))
     full_name = " ".join(filter(None, [forename, surname])) or None
 
-    values = {
-        "reg_ref": reg_ref,
-        "planning_authority": safe_str(
-            attrs.get("LocalAuthority") or attrs.get("PlanningAuthority")
-        ),
-        "applicant_forename": forename,
-        "applicant_surname": surname,
-        "applicant_name": full_name,
-        "proposal": clean_text(
-            safe_str(attrs.get("Development") or attrs.get("Description"))
-        ),
-        "location": clean_text(
-            safe_str(attrs.get("Location") or attrs.get("Address"))
-        ),
-        "decision": normalise_decision(safe_str(attrs.get("Decision")) or ""),
-        "apn_date": safe_date(
-            attrs.get("ReceivedDate") or attrs.get("ApplicationDate")
-        ),
-        "rgn_date": safe_date(attrs.get("RegisteredDate")),
-        "dec_date": safe_date(attrs.get("DecisionDate")),
-        "app_type": safe_str(attrs.get("ApplicationType")),
-        "land_use_code": safe_str(attrs.get("LandUseCode")),
-        "floor_area": float(attrs["FloorArea"]) if attrs.get("FloorArea") else None,
-        "num_residential_units": (
-            int(attrs["NumResidentialUnits"])
-            if attrs.get("NumResidentialUnits")
-            else None
-        ),
-        "area_of_site": (
-            float(attrs["AreaofSite"]) if attrs.get("AreaofSite") else None
-        ),
-        "one_off_house": bool(attrs.get("OneOffHouse")),
-        "link_app_details": safe_str(attrs.get("LinkAppDetails")),
-        "npad_object_id": (
-            int(attrs["OBJECTID"]) if attrs.get("OBJECTID") else None
-        ),
-        "data_source": "npad",
-    }
+    # Convert ITM coordinates to WGS84 lat/lng
+    lat, lng = None, None
+    itm_e = attrs.get("ITMEasting")
+    itm_n = attrs.get("ITMNorthing")
+    if itm_e and itm_n:
+        try:
+            from app.utils.itm_to_wgs84 import itm_to_wgs84
+            lat, lng = itm_to_wgs84(float(itm_e), float(itm_n))
+            if not (-90 <= lat <= 90 and -180 <= lng <= 180):
+                lat, lng = None, None
+        except Exception:
+            lat, lng = None, None
 
-    lat = attrs.get("Latitude") or attrs.get("lat")
-    lng = attrs.get("Longitude") or attrs.get("lon") or attrs.get("lng")
+    values = {
+        "reg_ref":              reg_ref,
+        "planning_authority":   safe_str(attrs.get("PlanningAuthority")),
+        "applicant_forename":   forename,
+        "applicant_surname":    surname,
+        "applicant_name":       full_name,
+        "proposal":             clean_text(safe_str(attrs.get("DevelopmentDescription"))),
+        "location":             clean_text(safe_str(attrs.get("DevelopmentAddress"))),
+        "decision":             normalise_decision(safe_str(attrs.get("Decision")) or ""),
+        "apn_date":             safe_date(attrs.get("ReceivedDate")),
+        "dec_date":             safe_date(attrs.get("DecisionDate")),
+        "final_grant_date":     safe_date(attrs.get("GrantDate")),
+        "app_type":             safe_str(attrs.get("ApplicationType")),
+        "land_use_code":        safe_str(attrs.get("LandUseCode")),
+        "floor_area":           float(attrs["FloorArea"]) if attrs.get("FloorArea") else None,
+        "num_residential_units": int(attrs["NumResidentialUnits"]) if attrs.get("NumResidentialUnits") else None,
+        "area_of_site":         float(attrs["AreaofSite"]) if attrs.get("AreaofSite") else None,
+        "one_off_house":        safe_str(attrs.get("OneOffHouse")) == "Y",
+        "link_app_details":     safe_str(attrs.get("LinkAppDetails")),
+        "appeal_ref_number":    safe_str(attrs.get("AppealRefNumber")),
+        "appeal_status":        safe_str(attrs.get("AppealStatus")),
+        "appeal_decision":      safe_str(attrs.get("AppealDecision")),
+        "appeal_decision_date": safe_date(attrs.get("AppealDecisionDate")),
+        "fi_request_date":      safe_date(attrs.get("FIRequestDate")),
+        "fi_rec_date":          safe_date(attrs.get("FIRecDate")),
+        "npad_object_id":       int(attrs["OBJECTID"]) if attrs.get("OBJECTID") else None,
+        "data_source":          "npad",
+    }
 
     # Clean None/nan strings
     for k in list(values.keys()):
@@ -126,11 +126,9 @@ async def upsert_npad_record(db: AsyncSession, attrs: dict) -> bool:
         update_parts = [f"{k} = EXCLUDED.{k}" for k in cols if k != "reg_ref"]
 
         if lat and lng:
-            lat, lng = float(lat), float(lng)
             sql = text(f"""
                 INSERT INTO applications ({', '.join(cols)}, location_point)
-                VALUES ({', '.join(placeholders)},
-                        ST_SetSRID(ST_MakePoint({lng}, {lat}), 4326))
+                VALUES ({', '.join(placeholders)}, ST_SetSRID(ST_MakePoint({lng}, {lat}), 4326))
                 ON CONFLICT (reg_ref) DO UPDATE SET
                     {', '.join(update_parts)},
                     location_point = EXCLUDED.location_point
