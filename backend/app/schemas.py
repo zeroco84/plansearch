@@ -5,6 +5,27 @@ from typing import Optional, List
 from pydantic import BaseModel, Field
 
 
+# ── Constants ───────────────────────────────────────────────────────────
+
+CATEGORY_LABELS = {
+    "residential_new_build": "New Residential",
+    "residential_extension": "Extension / Renovation",
+    "residential_conversion": "Residential Conversion",
+    "hotel_accommodation": "Hotel & Accommodation",
+    "commercial_retail": "Retail & Food",
+    "commercial_office": "Office",
+    "industrial_warehouse": "Industrial / Warehouse",
+    "mixed_use": "Mixed Use",
+    "protected_structure": "Protected Structure",
+    "telecommunications": "Telecoms",
+    "renewable_energy": "Renewable Energy",
+    "signage": "Signage",
+    "change_of_use": "Change of Use",
+    "demolition": "Demolition",
+    "other": "Other",
+}
+
+
 # ── Search ──────────────────────────────────────────────────────────────
 
 class SearchParams(BaseModel):

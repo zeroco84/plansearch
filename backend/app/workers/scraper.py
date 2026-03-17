@@ -50,6 +50,18 @@ class RateLimiter:
 rate_limiter = RateLimiter(settings.scraper_rate_limit_seconds)
 
 
+def should_run_scraper(hour: Optional[int] = None) -> bool:
+    """Check if the scraper should run based on the current hour.
+
+    Scraping is only allowed during off-peak hours (8pm–8am).
+    This avoids loading the portal during business hours.
+    """
+    if hour is None:
+        hour = datetime.utcnow().hour
+    # Off-peak: 8pm (20) through midnight to 8am (7)
+    return hour >= 20 or hour < 8
+
+
 async def scrape_applicant_name(reg_ref: str) -> Optional[str]:
     """Scrape the applicant name for a single application from the Agile portal.
 

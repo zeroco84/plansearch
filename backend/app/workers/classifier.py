@@ -59,6 +59,38 @@ CATEGORY_LABELS = {
 }
 
 
+def build_classification_prompt(proposal: str, location: str = "", reg_ref: str = "") -> str:
+    """Build the classification prompt for a given proposal.
+
+    Returns the formatted prompt string.
+    """
+    return CLASSIFICATION_PROMPT.format(
+        reg_ref=reg_ref or "",
+        location=location or "Not specified",
+        proposal=proposal or "Not specified",
+        long_proposal=proposal or "Not specified",
+    )
+
+
+def parse_classification_response(response_text: str) -> Optional[dict]:
+    """Parse a classification JSON response.
+
+    Returns dict with category, subcategory, confidence or None on failure.
+    """
+    try:
+        result = json.loads(response_text)
+        category = result.get("category")
+        if not category or category not in CATEGORY_LABELS:
+            return None
+        return {
+            "category": category,
+            "subcategory": result.get("subcategory", ""),
+            "confidence": min(1.0, max(0.0, float(result.get("confidence", 0.5)))),
+        }
+    except (json.JSONDecodeError, ValueError, TypeError):
+        return None
+
+
 async def get_claude_api_key(db: AsyncSession) -> Optional[str]:
     """Retrieve the Claude API key from encrypted admin_config."""
     result = await db.execute(

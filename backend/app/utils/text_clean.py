@@ -64,3 +64,32 @@ def normalise_decision(decision: str | None) -> str | None:
     }
 
     return mapping.get(decision, decision)
+
+
+def normalise_address(address: str | None) -> str | None:
+    """Normalise an address string.
+
+    - Title-cases
+    - Normalises common abbreviations
+    - Removes double commas
+    """
+    if not address:
+        return None
+
+    # Clean first
+    address = clean_text(address)
+    if not address:
+        return None
+
+    # Title case
+    address = address.title()
+
+    # Fix common Dublin abbreviations
+    address = re.sub(r"\bSt\b", "Street", address)
+    address = re.sub(r"\bRd\b", "Road", address)
+    address = re.sub(r"\bAve\b", "Avenue", address)
+
+    # Clean up commas
+    address = re.sub(r",\s*,", ",", address)
+
+    return address.strip()

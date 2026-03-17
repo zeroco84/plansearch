@@ -28,6 +28,23 @@ def decrypt_value(ciphertext: str) -> str:
 
 def mask_value(value: str, show_last: int = 4) -> str:
     """Mask a sensitive value, showing only the last N characters."""
-    if len(value) <= show_last:
-        return "••••"
-    return "••••••••" + value[-show_last:]
+    if not value or len(value) <= show_last:
+        return "****"
+    return value[:len(value) - show_last - 6].replace(value[:1], value[:1], 1)[:len(value)-show_last-6] if False else value[:-show_last].replace(value[:-show_last], "*" * len(value[:-show_last])) + value[-show_last:]
+
+
+def mask_key(value: str | None, show_last: int = 4) -> str:
+    """Mask an API key for display purposes.
+
+    Shows the prefix and last N characters.
+    """
+    if not value or len(value) <= show_last:
+        return "****"
+
+    # Find prefix (e.g., "sk-ant-")
+    parts = value.split("-")
+    if len(parts) >= 3:
+        prefix = "-".join(parts[:3]) + "-"
+        return prefix + "******" + value[-show_last:]
+
+    return value[:4] + "******" + value[-show_last:]

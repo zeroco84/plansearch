@@ -24,6 +24,81 @@ logger = logging.getLogger(__name__)
 settings = get_settings()
 
 
+def detect_year_from_ref(reg_ref: str) -> Optional[int]:
+    """Extract the year from a registration reference.
+
+    Handles formats like:
+    - "1234/24" -> 2024
+    - "FRL/2024/12345" -> 2024
+    - "1234/05" -> 2005
+    """
+    if not reg_ref:
+        return None
+
+    import re
+
+    # Try 4-digit year
+    match = re.search(r'/(20\d{2})/', reg_ref)
+    if match:
+        return int(match.group(1))
+
+    # Try 2-digit year at end (e.g., "1234/24")
+    match = re.search(r'/(\d{2})$', reg_ref)
+    if match:
+        yy = int(match.group(1))
+        return 2000 + yy if yy < 50 else 1900 + yy
+
+    return None
+
+
+def parse_csv_row(row: dict) -> Optional[dict]:
+    """Parse a raw CSV row into application fields.
+
+    Returns None if the row has no valid reg_ref.
+    """
+    reg_ref = str(row.get("APPLICATION_NUMBER", "") or row.get("REG_REF", "")).strip()
+    if not reg_ref or reg_ref == "nan":
+        return None
+
+    return {
+        "reg_ref": reg_ref,
+        "app_type": clean_text(str(row.get("APPLICATION_TYPE", ""))),
+        "apn_date": row.get("APPLICATION_DATE"),
+        "location": clean_text(str(row.get("LOCATION_1", "") or row.get("LOCATION", ""))),
+        "proposal": clean_text(str(row.get("DESCRIPTION", "") or row.get("PROPOSAL", ""))),
+        "decision": str(row.get("DECISION", "")),
+        "dec_date": row.get("DECISION_DATE"),
+        "rgn_date": row.get("REGISTRATION_DATE"),
+        "year": detect_year_from_ref(reg_ref),
+    }
+
+
+def merge_spatial_data(base_df: pd.DataFrame, spatial_df: pd.DataFrame) -> pd.DataFrame:
+    """Merge spatial dataframe with base applications on REG_REF.
+
+    Returns merged dataframe.
+    """
+    base_ref = find_column(base_df, "REG_REF", "REGREF", "APPLICATION_NUMBER")
+    spatial_ref = find_column(spatial_df, "REG_REF", "REGREF", "APPLICATION_NUMBER")
+
+    if not base_ref or not spatial_ref:
+        logger.warning("Cannot merge — REG_REF column not found")
+        return base_df
+
+    spatial_cols = [spatial_ref]
+    for col in ["lat", "lng", "itm_easting", "itm_northing"]:
+        if col in spatial_df.columns:
+            spatial_cols.append(col)
+
+    merged = base_df.merge(
+        spatial_df[spatial_cols].drop_duplicates(subset=[spatial_ref]),
+        left_on=base_ref,
+        right_on=spatial_ref,
+        how="left",
+    )
+    return merged
+
+
 async def download_csv(url: str, limit: Optional[int] = None) -> pd.DataFrame:
     """Download a CSV file from DCC Open Data.
 
