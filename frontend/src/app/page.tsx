@@ -153,12 +153,12 @@ export default function Home() {
 
       {/* NAV */}
       <nav style={{ background: '#0d1117', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-        <div className="max-w-7xl mx-auto px-8 flex items-center justify-between" style={{ height: '64px' }}>
-          <Link href="/" className="flex items-center gap-2 text-white no-underline">
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: '64px', padding: '0 2rem', width: '100%' }}>
+          <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'white', textDecoration: 'none' }}>
             <Database className="w-5 h-5 text-[var(--teal)]" />
             <span style={{ color: 'white', fontSize: '1.125rem', fontWeight: '600', letterSpacing: '-0.01em', fontFamily: "'Playfair Display', serif" }}>PlanSearch</span>
           </Link>
-          <div className="flex items-center gap-1">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
             <Link href="/map" className="nav-link">
               <MapIcon className="w-5 h-5" />
               <span className="hidden sm:inline">Map</span>

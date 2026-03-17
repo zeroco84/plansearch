@@ -5,7 +5,7 @@ import Link from 'next/link';
 import {
   Database, Settings, RefreshCw, Key, FileText, Activity,
   BarChart3, Users, Building2, Zap, Clock, Shield,
-  ChevronRight, Map as MapIcon
+  ChevronRight, Map as MapIcon, TrendingUp, BookOpen, Search, LogOut
 } from 'lucide-react';
 import { getStats, StatsResponse, CATEGORY_LABELS } from '@/lib/api';
 
@@ -81,25 +81,38 @@ export default function AdminPage() {
     <main className="min-h-screen flex flex-col" style={{ background: '#f9f8f6' }}>
       {/* Nav — matches homepage */}
       <nav style={{ background: '#0d1117', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-        <div className="max-w-7xl mx-auto px-8 flex items-center justify-between" style={{ height: '64px' }}>
-          <div className="flex items-center gap-4">
-            <Link href="/" className="flex items-center gap-2 text-white no-underline">
-              <Database className="w-5 h-5 text-[var(--teal)]" />
-              <span style={{ color: 'white', fontSize: '1.125rem', fontWeight: '600', letterSpacing: '-0.01em', fontFamily: "'Playfair Display', serif" }}>PlanSearch</span>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: '64px', padding: '0 2rem', width: '100%' }}>
+          <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'white', textDecoration: 'none' }}>
+            <Database className="w-5 h-5 text-[var(--teal)]" />
+            <span style={{ color: 'white', fontSize: '1.125rem', fontWeight: '600', letterSpacing: '-0.01em', fontFamily: "'Playfair Display', serif" }}>PlanSearch</span>
+          </Link>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+            <Link href="/" className="nav-link">
+              <Search className="w-5 h-5" />
+              <span className="hidden sm:inline">Search</span>
             </Link>
-            <span style={{ color: 'rgba(255,255,255,0.2)' }}>|</span>
-            <span className="flex items-center gap-1.5" style={{ color: 'rgba(255,255,255,0.6)', fontSize: '0.9rem' }}>
-              <Settings className="w-4 h-4" /> Admin Centre
-            </span>
-          </div>
-          <div className="flex items-center gap-1">
-            <Link href="/" className="nav-link">Search</Link>
-            <Link href="/map" className="nav-link"><MapIcon className="w-5 h-5" /> Map</Link>
+            <Link href="/map" className="nav-link">
+              <MapIcon className="w-5 h-5" />
+              <span className="hidden sm:inline">Map</span>
+            </Link>
+            <Link href="/significant" className="nav-link">
+              <TrendingUp className="w-5 h-5" />
+              <span className="hidden sm:inline">Significant</span>
+            </Link>
+            <Link href="/insights" className="nav-link">
+              <BookOpen className="w-5 h-5" />
+              <span className="hidden sm:inline">Insights</span>
+            </Link>
+            <Link href="/admin" className="nav-link" style={{ color: 'var(--teal)' }}>
+              <Settings className="w-5 h-5" />
+              <span className="hidden sm:inline">Admin</span>
+            </Link>
             <button
               onClick={() => { localStorage.removeItem('plansearch_admin_token'); setAuthenticated(false); }}
               className="nav-link"
+              style={{ marginLeft: '0.5rem', border: 'none', background: 'none', cursor: 'pointer' }}
             >
-              Logout
+              <LogOut className="w-4 h-4" />
             </button>
           </div>
         </div>
