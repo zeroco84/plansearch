@@ -32,7 +32,7 @@ settings = get_settings()
 _sse_events: list[dict] = []
 
 
-def _verify_admin_token(authorization: str = Header(...)):
+def verify_admin_token(authorization: str = Header(...)):
     """Verify the admin bearer token."""
     if not authorization.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="Invalid authorization header")
@@ -46,7 +46,7 @@ def _verify_admin_token(authorization: str = Header(...)):
 
 @router.get("/admin/config", response_model=list[AdminConfigItem])
 async def list_config(
-    _token: str = Depends(_verify_admin_token),
+    _token: str = Depends(verify_admin_token),
     db: AsyncSession = Depends(get_db),
 ):
     """List all config keys with masked values."""
@@ -68,7 +68,7 @@ async def list_config(
 @router.post("/admin/config")
 async def update_config(
     update_data: AdminConfigUpdate,
-    _token: str = Depends(_verify_admin_token),
+    _token: str = Depends(verify_admin_token),
     db: AsyncSession = Depends(get_db),
 ):
     """Update or create a config key/value pair."""
@@ -101,7 +101,7 @@ async def update_config(
 @router.post("/admin/keys/claude")
 async def update_claude_key(
     key_data: dict,
-    _token: str = Depends(_verify_admin_token),
+    _token: str = Depends(verify_admin_token),
     db: AsyncSession = Depends(get_db),
 ):
     """Update the Claude API key (stored encrypted)."""
@@ -136,7 +136,7 @@ async def update_claude_key(
 @router.post("/admin/keys/cro")
 async def update_cro_key(
     key_data: dict,
-    _token: str = Depends(_verify_admin_token),
+    _token: str = Depends(verify_admin_token),
     db: AsyncSession = Depends(get_db),
 ):
     """Update the CRO API key (stored encrypted)."""
@@ -172,7 +172,7 @@ async def update_cro_key(
 
 @router.post("/admin/sync/trigger", response_model=SyncTriggerResponse)
 async def trigger_sync(
-    _token: str = Depends(_verify_admin_token),
+    _token: str = Depends(verify_admin_token),
     db: AsyncSession = Depends(get_db),
 ):
     """Manually trigger a DCC data sync."""
@@ -224,7 +224,7 @@ async def _run_ingest_background(sync_id: int):
 
 @router.get("/admin/sync/status", response_model=SyncLogEntry)
 async def sync_status(
-    _token: str = Depends(_verify_admin_token),
+    _token: str = Depends(verify_admin_token),
     db: AsyncSession = Depends(get_db),
 ):
     """Get the most recent sync log entry."""
@@ -242,7 +242,7 @@ async def sync_status(
 @router.post("/admin/classify/trigger")
 async def trigger_classification(
     batch_size: int = Query(100, ge=1, le=10000),
-    _token: str = Depends(_verify_admin_token),
+    _token: str = Depends(verify_admin_token),
     db: AsyncSession = Depends(get_db),
 ):
     """Trigger AI classification batch."""
@@ -267,7 +267,7 @@ async def _run_classify_background(batch_size: int):
 
 @router.get("/admin/classify/status", response_model=ClassifyStatusResponse)
 async def classify_status(
-    _token: str = Depends(_verify_admin_token),
+    _token: str = Depends(verify_admin_token),
     db: AsyncSession = Depends(get_db),
 ):
     """Get classification queue status."""
@@ -298,7 +298,7 @@ async def classify_status(
 
 @router.post("/admin/scrape/trigger")
 async def trigger_scraping(
-    _token: str = Depends(_verify_admin_token),
+    _token: str = Depends(verify_admin_token),
     db: AsyncSession = Depends(get_db),
 ):
     """Trigger applicant name scraping."""
@@ -323,7 +323,7 @@ async def _run_scraper_background():
 
 @router.get("/admin/scrape/status", response_model=ScrapeStatusResponse)
 async def scrape_status(
-    _token: str = Depends(_verify_admin_token),
+    _token: str = Depends(verify_admin_token),
     db: AsyncSession = Depends(get_db),
 ):
     """Get scraper queue status."""
@@ -350,7 +350,7 @@ async def scrape_status(
 @router.get("/admin/logs")
 async def get_logs(
     limit: int = Query(50, le=200),
-    _token: str = Depends(_verify_admin_token),
+    _token: str = Depends(verify_admin_token),
     db: AsyncSession = Depends(get_db),
 ):
     """Get recent sync log entries."""
@@ -368,7 +368,7 @@ async def get_logs(
 
 @router.get("/admin/stream")
 async def sse_stream(
-    _token: str = Depends(_verify_admin_token),
+    _token: str = Depends(verify_admin_token),
 ):
     """Server-Sent Events stream for live progress updates."""
 
