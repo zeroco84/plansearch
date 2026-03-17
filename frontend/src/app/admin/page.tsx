@@ -157,7 +157,7 @@ export default function AdminPage() {
         <h1 style={{ fontSize: '1.75rem', fontFamily: "'Playfair Display', serif", marginBottom: '2rem', color: '#1a1a2e' }}>Control Centre</h1>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4" style={{ marginBottom: '1.25rem' }}>
           <div className="stat-card">
             <div className="stat-value">{stats?.total_applications.toLocaleString() || '—'}</div>
             <div className="stat-label">Total Applications</div>
@@ -186,7 +186,7 @@ export default function AdminPage() {
 
         {/* Category Breakdown */}
         {stats && Object.keys(stats.categories).length > 0 && (
-          <div className="admin-card mb-6">
+          <div className="admin-card" style={{ marginBottom: '1.25rem' }}>
             <h3 style={{ fontSize: '1.1rem', fontFamily: "'Playfair Display', serif", marginBottom: '1rem' }}>Classification Breakdown</h3>
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
               {Object.entries(stats.categories)
@@ -202,7 +202,7 @@ export default function AdminPage() {
         )}
 
         {/* Admin Panels */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Link href="/admin/sync" className="admin-card hover:border-[var(--teal)] transition-colors no-underline">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
