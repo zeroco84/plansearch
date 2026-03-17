@@ -9,7 +9,14 @@ def get_fernet() -> Fernet:
     settings = get_settings()
     key = settings.master_encryption_key
     if not key or key == "placeholder-generate-before-production":
-        # Generate a temporary key for development
+        import os
+        if os.environ.get("ENV", "development") == "production" or os.environ.get("RAILWAY_ENVIRONMENT"):
+            raise RuntimeError(
+                "MASTER_ENCRYPTION_KEY is not set. "
+                "Generate one with: python -c 'from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())' "
+                "and set it as an environment variable."
+            )
+        # Generate a temporary key for development only
         key = Fernet.generate_key().decode()
     return Fernet(key.encode() if isinstance(key, str) else key)
 
