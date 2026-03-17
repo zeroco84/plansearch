@@ -10,7 +10,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import get_settings
-from app.api.routes import search, applications, map, stats, admin, export, docs
+from app.api.routes import search, applications, map, stats, admin, export, docs, digest
 
 logging.basicConfig(
     level=logging.INFO,
@@ -30,7 +30,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="PlanSearch API",
-    description="Dublin Planning Intelligence Platform — search, classify, and explore Dublin City Council planning applications.",
+    description="National Planning Intelligence Platform — search, classify, and explore 650k+ Irish planning applications across all 31 local authorities.",
     version=settings.app_version,
     lifespan=lifespan,
 )
@@ -52,6 +52,7 @@ app.include_router(stats.router, prefix="/api", tags=["Stats"])
 app.include_router(admin.router, prefix="/api", tags=["Admin"])
 app.include_router(export.router, prefix="/api", tags=["Export"])
 app.include_router(docs.router, prefix="/api", tags=["Documents"])
+app.include_router(digest.router, prefix="/api", tags=["Digest"])
 
 
 @app.get("/api/health")

@@ -33,6 +33,11 @@ async def search_applications(
     lat: Optional[float] = Query(None, description="Latitude for proximity search"),
     lng: Optional[float] = Query(None, description="Longitude for proximity search"),
     radius_m: Optional[int] = Query(None, description="Radius in metres for proximity search"),
+    authority: Optional[str] = Query(None, description="Planning authority filter (national)"),
+    lifecycle_stage: Optional[str] = Query(None, description="Lifecycle stage filter"),
+    value_min: Optional[int] = Query(None, description="Minimum estimated value (€)"),
+    value_max: Optional[int] = Query(None, description="Maximum estimated value (€)"),
+    one_off_house: Optional[bool] = Query(None, description="Filter one-off houses"),
     sort: str = Query("date_desc", description="Sort order"),
     page: int = Query(1, ge=1, description="Page number"),
     page_size: int = Query(25, ge=1, le=100, description="Results per page"),
@@ -90,6 +95,24 @@ async def search_applications(
             )
         )
 
+    # Phase 2: National authority filter
+    if authority:
+        conditions.append(Application.planning_authority == authority)
+
+    # Phase 2: Lifecycle stage filter
+    if lifecycle_stage:
+        conditions.append(Application.lifecycle_stage == lifecycle_stage)
+
+    # Phase 2: Value range filter
+    if value_min is not None:
+        conditions.append(Application.est_value_high >= value_min)
+    if value_max is not None:
+        conditions.append(Application.est_value_high <= value_max)
+
+    # Phase 2: One-off house filter
+    if one_off_house is not None:
+        conditions.append(Application.one_off_house == one_off_house)
+
     # Build count query
     where_clause = and_(*conditions) if conditions else text("1=1")
 
@@ -116,6 +139,10 @@ async def search_applications(
         data_query = data_query.order_by(
             func.ts_rank(Application.search_vector, ts_query).desc()
         )
+    elif sort == "value_desc":
+        data_query = data_query.order_by(Application.est_value_high.desc().nullslast())
+    elif sort == "significance":
+        data_query = data_query.order_by(Application.significance_score.desc())
     else:
         data_query = data_query.order_by(Application.apn_date.desc().nullslast())
 
@@ -167,6 +194,12 @@ async def search_applications(
                 lat=lat_val,
                 lng=lng_val,
                 relevance_score=float(relevance) if relevance else None,
+                planning_authority=app.planning_authority,
+                lifecycle_stage=app.lifecycle_stage,
+                est_value_high=app.est_value_high,
+                significance_score=app.significance_score,
+                num_residential_units=app.num_residential_units,
+                floor_area=app.floor_area,
             )
         )
 

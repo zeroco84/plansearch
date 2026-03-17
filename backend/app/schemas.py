@@ -59,6 +59,13 @@ class ApplicationSummary(BaseModel):
     lat: Optional[float] = None
     lng: Optional[float] = None
     relevance_score: Optional[float] = None
+    # Phase 2 national fields
+    planning_authority: Optional[str] = None
+    lifecycle_stage: Optional[str] = None
+    est_value_high: Optional[int] = None
+    significance_score: Optional[int] = None
+    num_residential_units: Optional[int] = None
+    floor_area: Optional[float] = None
 
     class Config:
         from_attributes = True

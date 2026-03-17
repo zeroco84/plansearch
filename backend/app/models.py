@@ -55,14 +55,58 @@ class Application(Base):
     classification_confidence = Column(Float)
     classified_at = Column(DateTime(timezone=True))
 
-    # Applicant (portal scraper)
+    # Applicant (portal scraper / NPAD)
     applicant_name = Column(Text)
+    applicant_forename = Column(String(100))
+    applicant_surname = Column(String(100))
+    applicant_address = Column(Text)
     applicant_scraped_at = Column(DateTime(timezone=True))
     applicant_scrape_failed = Column(Boolean, default=False)
 
     # CRO enrichment
     cro_number = Column(String(20))
     cro_enriched_at = Column(DateTime(timezone=True))
+
+    # National data (NPAD fields — Phase 2)
+    planning_authority = Column(String(100))
+    land_use_code = Column(String(50))
+    area_of_site = Column(Float)
+    num_residential_units = Column(Integer)
+    floor_area = Column(Float)
+    one_off_house = Column(Boolean)
+    link_app_details = Column(Text)
+    npad_object_id = Column(Integer)
+    data_source = Column(String(20), default="dcc_csv")
+    eircode = Column(String(10))
+
+    # NPAD appeal fields
+    appeal_ref_number = Column(String(30))
+    appeal_status = Column(String(50))
+    appeal_decision = Column(String(50))
+    appeal_decision_date = Column(Date)
+    fi_request_date = Column(Date)
+    fi_rec_date = Column(Date)
+
+    # Lifecycle stage (Phase 2)
+    lifecycle_stage = Column(String(30))
+    lifecycle_updated_at = Column(DateTime(timezone=True))
+
+    # AI value estimation (Phase 2)
+    est_value_low = Column(BigInteger)
+    est_value_high = Column(BigInteger)
+    est_value_basis = Column(Text)
+    est_value_type = Column(String(100))
+    est_value_confidence = Column(String(10))
+    value_estimated_at = Column(DateTime(timezone=True))
+
+    # Significance scoring (Phase 2)
+    significance_score = Column(Integer, default=0)
+
+    # Professional identification (Phase 2)
+    planning_agent_name = Column(Text)
+    planning_agent_company = Column(Text)
+    architect_name = Column(Text)
+    architect_company = Column(Text)
 
     # Spatial
     location_point = Column(Geometry("POINT", srid=4326))
@@ -230,3 +274,123 @@ class DocumentScrapeStatus(Base):
     doc_count = Column(Integer, default=0)
     last_scraped = Column(DateTime(timezone=True))
     error_message = Column(Text)
+
+
+class CommencementNotice(Base):
+    """BCMS Commencement Notice + Certificate of Compliance on Completion."""
+
+    __tablename__ = "commencement_notices"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    reg_ref = Column(String(30))
+    local_authority = Column(String(100))
+
+    # Commencement
+    cn_commencement_date = Column(Date)
+    cn_proposed_end_date = Column(Date)
+    cn_project_status = Column(String(50))
+    cn_date_granted = Column(Date)
+    cn_date_expiry = Column(Date)
+    cn_description = Column(Text)
+    cn_proposed_use_desc = Column(Text)
+
+    # Building characteristics
+    cn_total_floor_area = Column(Float)
+    cn_total_dwelling_units = Column(Integer)
+    cn_total_apartments = Column(Integer)
+    cn_number_stories_above = Column(Integer)
+    cn_number_bedrooms = Column(Integer)
+    cn_protected_structure = Column(Boolean)
+    cn_phase = Column(String(10))
+    cn_units_for_phase = Column(Integer)
+    cn_total_phases = Column(Integer)
+
+    # Address
+    cn_street = Column(Text)
+    cn_town = Column(Text)
+    cn_eircode = Column(String(10))
+    cn_county = Column(String(50))
+    cn_lat = Column(Float)
+    cn_lng = Column(Float)
+    location_point = Column(Geometry("POINT", srid=4326))
+
+    # Completion
+    ccc_date_validated = Column(Date)
+    ccc_units_completed = Column(Integer)
+    ccc_type = Column(String(100))
+
+    # Metadata
+    raw_data = Column(JSONB)
+    ingested_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class FSCApplication(Base):
+    """BCMS Fire Safety Certificate / Disability Access Certificate application."""
+
+    __tablename__ = "fsc_applications"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    reg_ref = Column(String(30))
+    application_reference_no = Column(String(50))
+    application_type = Column(String(20))
+    local_authority = Column(String(100))
+    submission_date = Column(Date)
+    date_of_decision = Column(Date)
+    decision_type = Column(String(50))
+
+    # Building data
+    floor_area_of_building = Column(Float)
+    total_combined_floor_area = Column(Float)
+    no_of_stories_above_ground = Column(Integer)
+    site_area = Column(Float)
+    use_of_proposed_works = Column(Text)
+    main_construction_type = Column(String(100))
+
+    # Construction status
+    date_construction_started = Column(Date)
+    is_construction_complete = Column(Boolean)
+    date_of_completion = Column(Date)
+    is_building_occupied = Column(Boolean)
+
+    # Applicant
+    applicant_name = Column(Text)
+    applicant_address_line_1 = Column(Text)
+    applicant_town = Column(Text)
+    applicant_county = Column(String(50))
+
+    # Location
+    lat = Column(Float)
+    longitude = Column(Float)
+    eircode = Column(String(10))
+    location_point = Column(Geometry("POINT", srid=4326))
+
+    raw_data = Column(JSONB)
+    ingested_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class CostBenchmark(Base):
+    """Admin-configurable construction cost benchmarks."""
+
+    __tablename__ = "cost_benchmarks"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    development_type = Column(String(100), unique=True, nullable=False)
+    unit_label = Column(String(20), nullable=False)
+    cost_low = Column(Integer, nullable=False)
+    cost_high = Column(Integer, nullable=False)
+    notes = Column(Text)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class WeeklyDigest(Base):
+    """Generated weekly significant approvals digest."""
+
+    __tablename__ = "weekly_digests"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    week_start = Column(Date, nullable=False)
+    week_end = Column(Date, nullable=False)
+    generated_at = Column(DateTime(timezone=True), server_default=func.now())
+    total_entries = Column(Integer, default=0)
+    digest_data = Column(JSONB)
+    published = Column(Boolean, default=False)
