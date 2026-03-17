@@ -153,10 +153,10 @@ export default function Home() {
 
       {/* NAV */}
       <nav style={{ background: '#0d1117', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-        <div className="max-w-6xl mx-auto py-4 flex items-center justify-between" style={{ padding: '1rem 1.5rem' }}>
+        <div className="w-full flex items-center justify-between" style={{ padding: '0 2rem', height: '60px' }}>
           <Link href="/" className="flex items-center gap-2 text-white no-underline">
             <Database className="w-5 h-5 text-[var(--teal)]" />
-            <span className="font-semibold text-lg" style={{ fontFamily: "'Playfair Display', serif" }}>
+            <span style={{ color: 'white', fontSize: '1.1rem', fontWeight: '600', fontFamily: "'Playfair Display', serif" }}>
               PlanSearch
             </span>
           </Link>
