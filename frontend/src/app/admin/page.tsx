@@ -49,26 +49,61 @@ export default function AdminPage() {
 
   if (!authenticated) {
     return (
-      <main className="min-h-screen hero-gradient flex items-center justify-center">
-        <div className="bg-white rounded-xl p-8 w-full max-w-md shadow-2xl">
-          <div className="flex items-center gap-2 mb-6">
-            <Shield className="w-6 h-6 text-[var(--teal)]" />
-            <h1 className="text-xl font-semibold" style={{ fontFamily: "'Playfair Display', serif" }}>Admin Access</h1>
+      <main style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+        {/* Nav — same as all pages */}
+        <nav style={{ background: '#0d1117', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: '64px', padding: '0 2rem', width: '100%' }}>
+            <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'white', textDecoration: 'none' }}>
+              <Database className="w-5 h-5 text-[var(--teal)]" />
+              <span style={{ color: 'white', fontSize: '1.125rem', fontWeight: '600', letterSpacing: '-0.01em', fontFamily: "'Playfair Display', serif" }}>PlanSearch</span>
+            </Link>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+              <Link href="/" className="nav-link">
+                <Search className="w-5 h-5" />
+                <span className="hidden sm:inline">Search</span>
+              </Link>
+              <Link href="/map" className="nav-link">
+                <MapIcon className="w-5 h-5" />
+                <span className="hidden sm:inline">Map</span>
+              </Link>
+              <Link href="/significant" className="nav-link">
+                <TrendingUp className="w-5 h-5" />
+                <span className="hidden sm:inline">Significant</span>
+              </Link>
+              <Link href="/insights" className="nav-link">
+                <BookOpen className="w-5 h-5" />
+                <span className="hidden sm:inline">Insights</span>
+              </Link>
+              <Link href="/admin" className="nav-link" style={{ color: 'var(--teal)' }}>
+                <Settings className="w-5 h-5" />
+                <span className="hidden sm:inline">Admin</span>
+              </Link>
+            </div>
           </div>
-          <form onSubmit={handleLogin}>
-            <label className="text-xs text-[var(--text-muted)] uppercase tracking-wider block mb-2">Admin Token</label>
-            <input
-              type="password"
-              className="w-full px-4 py-3 rounded-lg border border-[var(--border)] bg-[var(--warm-white)] mb-4 focus:outline-none focus:border-[var(--teal)]"
-              placeholder="Enter admin bearer token"
-              value={token}
-              onChange={(e) => setToken(e.target.value)}
-            />
-            <button type="submit" className="btn-primary w-full">
-              <Key className="w-4 h-4" />
-              Authenticate
-            </button>
-          </form>
+        </nav>
+
+        {/* Login form — centred in remaining space */}
+        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(160deg, #0d1117 0%, #111827 50%, #0f2027 100%)' }}>
+          <div style={{ background: 'white', borderRadius: '12px', padding: '2rem', width: '100%', maxWidth: '420px', boxShadow: '0 25px 50px rgba(0,0,0,0.25)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.5rem' }}>
+              <Shield className="w-6 h-6 text-[var(--teal)]" />
+              <h1 style={{ fontSize: '1.25rem', fontWeight: '600', fontFamily: "'Playfair Display', serif", margin: 0 }}>Admin Access</h1>
+            </div>
+            <form onSubmit={handleLogin}>
+              <label style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: '0.5rem' }}>Admin Token</label>
+              <input
+                type="password"
+                style={{ width: '100%', padding: '0.75rem 1rem', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--warm-white)', marginBottom: '1rem', outline: 'none', fontSize: '0.95rem', boxSizing: 'border-box' }}
+                placeholder="Enter admin bearer token"
+                value={token}
+                onChange={(e) => setToken(e.target.value)}
+              />
+              <button type="submit" className="btn-primary" style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
+                <Key className="w-4 h-4" />
+                Authenticate
+              </button>
+            </form>
+          </div>
         </div>
       </main>
     );
