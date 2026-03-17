@@ -153,7 +153,7 @@ export default function Home() {
 
       {/* NAV */}
       <nav style={{ background: '#0d1117', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-        <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
+        <div className="max-w-6xl mx-auto py-4 flex items-center justify-between" style={{ padding: '1rem 1.5rem' }}>
           <Link href="/" className="flex items-center gap-2 text-white no-underline">
             <Database className="w-5 h-5 text-[var(--teal)]" />
             <span className="font-semibold text-lg" style={{ fontFamily: "'Playfair Display', serif" }}>
@@ -186,10 +186,10 @@ export default function Home() {
         className="flex-1 flex flex-col items-center justify-center"
         style={{ background: 'linear-gradient(160deg, #0d1117 0%, #111827 50%, #0f2027 100%)', padding: '3rem 1.5rem', minHeight: '70vh' }}
       >
-        <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: '0.7rem', letterSpacing: '0.2em', textTransform: 'uppercase', marginBottom: '2rem', textAlign: 'center' }}>
+        <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: '0.7rem', letterSpacing: '0.18em', textTransform: 'uppercase', marginBottom: '2rem', textAlign: 'center', width: '100%', padding: '0 1rem' }}>
           650,000+ planning applications · 31 local authorities · AI-classified
         </p>
-        <div style={{ width: '100%', maxWidth: '620px' }}>
+        <div style={{ width: '100%', maxWidth: 'min(680px, 90vw)' }}>
           <div className="relative">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5" style={{ color: 'rgba(255,255,255,0.35)' }} />
             <input
@@ -224,9 +224,9 @@ export default function Home() {
 
         {/* Suggestion chips — show only when no query */}
         {!query && (
-          <div style={{ marginTop: '2rem', textAlign: 'center' }}>
+          <div style={{ marginTop: '2.5rem', textAlign: 'center' }}>
             <p style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.25)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.75rem' }}>Try searching for</p>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', justifyContent: 'center' }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', justifyContent: 'center', marginTop: '0.5rem' }}>
               {['apartments Dublin', 'hotel Cork', 'student accommodation Galway', 'data centre Kildare', 'protected structure'].map(example => (
                 <button
                   key={example}
