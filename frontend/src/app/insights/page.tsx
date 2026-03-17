@@ -12,6 +12,9 @@ import {
   TONE_LABELS,
   TONE_COLORS,
 } from '@/lib/api';
+import {
+  Database, Settings, Map as MapIcon, TrendingUp, BookOpen, Search, ExternalLink,
+} from 'lucide-react';
 
 const FALLBACK_POSTS = [
   { slug: 'stepping-aside', title: 'Stepping Aside', subtitle: 'How to spend 6 years and millions of Euro building absolutely nothing.', published_at: '2025-12-09', substack_url: 'https://thebuildpod.substack.com/p/stepping-aside' },
@@ -51,9 +54,40 @@ export default function InsightsPage() {
 
   return (
     <div className="insights-page">
+      {/* NAV — consistent with all pages */}
+      <nav style={{ background: '#0d1117', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: '64px', padding: '0 2rem', width: '100%' }}>
+          <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'white', textDecoration: 'none' }}>
+            <Database className="w-5 h-5 text-[var(--teal)]" />
+            <span style={{ color: 'white', fontSize: '1.125rem', fontWeight: '600', letterSpacing: '-0.01em', fontFamily: "'Playfair Display', serif" }}>PlanSearch</span>
+          </Link>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+            <Link href="/" className="nav-link">
+              <Search className="w-5 h-5" />
+              <span className="hidden sm:inline">Search</span>
+            </Link>
+            <Link href="/map" className="nav-link">
+              <MapIcon className="w-5 h-5" />
+              <span className="hidden sm:inline">Map</span>
+            </Link>
+            <Link href="/significant" className="nav-link">
+              <TrendingUp className="w-5 h-5" />
+              <span className="hidden sm:inline">Significant</span>
+            </Link>
+            <Link href="/insights" className="nav-link" style={{ color: 'var(--teal)' }}>
+              <BookOpen className="w-5 h-5" />
+              <span className="hidden sm:inline">Insights</span>
+            </Link>
+            <Link href="/admin" className="nav-link">
+              <Settings className="w-5 h-5" />
+              <span className="hidden sm:inline">Admin</span>
+            </Link>
+          </div>
+        </div>
+      </nav>
+
       <header className="insights-header">
         <div className="header-content">
-          <Link href="/" className="back-link">← PlanSearch</Link>
           <h1>Insights</h1>
           <p className="byline">
             from <strong>The Build</strong> · by Rick Larkin
@@ -63,8 +97,30 @@ export default function InsightsPage() {
             from a developer who has been through it.
           </p>
 
-          {/* Substack subscribe widget — per spec 23.6 */}
-          <div id="substack-embed" className="subscribe-embed" />
+          <a
+            href="https://thebuildpod.substack.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+              marginTop: '1rem',
+              padding: '0.6rem 1.25rem',
+              background: '#ff6719',
+              color: 'white',
+              borderRadius: '8px',
+              fontSize: '0.85rem',
+              fontWeight: '600',
+              textDecoration: 'none',
+              transition: 'opacity 0.15s',
+            }}
+            onMouseOver={(e) => (e.currentTarget.style.opacity = '0.9')}
+            onMouseOut={(e) => (e.currentTarget.style.opacity = '1')}
+          >
+            Subscribe on Substack
+            <ExternalLink style={{ width: '14px', height: '14px' }} />
+          </a>
         </div>
       </header>
 
