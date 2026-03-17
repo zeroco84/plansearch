@@ -151,7 +151,7 @@ export default function Home() {
   return (
     <main className="min-h-screen">
       {/* ── Navigation ──────────────────────────────────── */}
-      <nav className="hero-gradient" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+      <nav className="bg-[var(--charcoal)]" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
         <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2 text-white no-underline">
             <Database className="w-5 h-5 text-[var(--teal)]" />
@@ -181,13 +181,9 @@ export default function Home() {
       </nav>
 
       {/* ── Hero Search ──────────────────────────────────── */}
-      <section className="hero-gradient py-16 md:py-24">
-        <div className="max-w-4xl mx-auto px-4 text-center">
-          <h1 className="text-3xl md:text-5xl text-white mb-3" style={{ fontFamily: "'Playfair Display', serif" }}>
-            Irish Planning
-            <span className="block text-[var(--teal)]">Intelligence</span>
-          </h1>
-          <p className="text-sm md:text-base text-white/50 mb-8 max-w-xl mx-auto font-light">
+      <section className="hero-gradient py-8 md:py-12">
+        <div className="max-w-3xl mx-auto px-4 text-center">
+          <p className="text-sm md:text-base text-white/50 mb-6 max-w-xl mx-auto font-light">
             Search 650,000+ planning applications across all 31 Irish local authorities.
             AI-classified, lifecycle-tracked, and value-estimated.
           </p>
@@ -346,9 +342,15 @@ export default function Home() {
         )}
 
         {/* Error state */}
-        {error && (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6 text-red-700 text-sm">
-            {error}
+        {error && !loading && (
+          <div className={`rounded-lg p-4 mb-6 text-sm ${
+            error.includes('fetch') || error.includes('Failed')
+              ? 'bg-amber-50 border border-amber-200 text-amber-700'
+              : 'bg-red-50 border border-red-200 text-red-700'
+          }`}>
+            {error.includes('fetch') || error.includes('Failed')
+              ? '⏳ Connecting to search service — the API may be starting up. Results will appear shortly.'
+              : error}
           </div>
         )}
 
@@ -489,7 +491,6 @@ export default function Home() {
           <div className="text-center mb-8">
             <a
               href={(() => {
-                const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
                 const params = new URLSearchParams();
                 if (query) params.set('q', query);
                 if (category) params.set('category', category);
@@ -498,7 +499,7 @@ export default function Home() {
                 if (yearTo) params.set('year_to', yearTo);
                 if (applicantFilter) params.set('applicant', applicantFilter);
                 if (locationFilter) params.set('location', locationFilter);
-                return `${API_BASE}/api/export/csv?${params.toString()}`;
+                return `${process.env.NEXT_PUBLIC_API_URL || ''}/api/export/csv?${params.toString()}`;
               })()}
               target="_blank"
               rel="noopener noreferrer"
