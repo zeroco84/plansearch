@@ -5,13 +5,14 @@ import Link from 'next/link';
 import {
   Search, MapPin, Filter, Download, ChevronDown,
   Building2, Calendar, Scale, ArrowUpDown, X, Settings,
-  Database, Map as MapIcon, TrendingUp
+  Database, Map as MapIcon, TrendingUp, BookOpen
 } from 'lucide-react';
 import {
   searchApplications, SearchParams, ApplicationSummary, SearchResponse,
   CATEGORY_LABELS, IRISH_AUTHORITIES, LIFECYCLE_STAGES, LIFECYCLE_COLORS,
   VALUE_RANGES, getDecisionColor, formatDate, formatValue,
 } from '@/lib/api';
+import PromotedCard from '@/components/PromotedCard';
 
 const DECISIONS = [
   { value: '', label: 'All Decisions' },
@@ -166,6 +167,10 @@ export default function Home() {
             <Link href="/significant" className="nav-link">
               <TrendingUp className="w-4 h-4" />
               <span className="hidden sm:inline">Significant</span>
+            </Link>
+            <Link href="/insights" className="nav-link">
+              <BookOpen className="w-4 h-4" />
+              <span className="hidden sm:inline">Insights</span>
             </Link>
             <Link href="/admin" className="nav-link">
               <Settings className="w-4 h-4" />
@@ -360,77 +365,87 @@ export default function Home() {
           )}
 
           {results?.results.map((app, i) => (
-            <Link
-              key={app.id}
-              href={`/application/${encodeURIComponent(app.reg_ref)}`}
-              className="no-underline"
-            >
-              <div className="result-card fade-in" style={{ animationDelay: `${i * 30}ms` }}>
-                <div className="flex flex-wrap items-start justify-between gap-2 mb-2">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="reg-ref-badge">{app.reg_ref}</span>
-                    <span className={`decision-chip ${getDecisionClass(app.decision)}`}>
-                      {getDecisionLabel(app.decision)}
+            <div key={app.id}>
+              {/* Per spec 24.5: Promoted card every 10th result, never first, max 1/page */}
+              {i === 9 && (
+                <PromotedCard
+                  devCategory={category}
+                  council={authority}
+                  lifecycleStage={lifecycleStage}
+                  pagePath="/search"
+                />
+              )}
+              <Link
+                href={`/application/${encodeURIComponent(app.reg_ref)}`}
+                className="no-underline"
+              >
+                <div className="result-card fade-in" style={{ animationDelay: `${i * 30}ms` }}>
+                  <div className="flex flex-wrap items-start justify-between gap-2 mb-2">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="reg-ref-badge">{app.reg_ref}</span>
+                      <span className={`decision-chip ${getDecisionClass(app.decision)}`}>
+                        {getDecisionLabel(app.decision)}
+                      </span>
+                      {app.dev_category && (
+                        <span className="category-tag">
+                          {CATEGORY_LABELS[app.dev_category] || app.dev_category}
+                        </span>
+                      )}
+                    </div>
+                    <span className="text-xs text-[var(--text-muted)]">
+                      {formatDate(app.apn_date)}
                     </span>
-                    {app.dev_category && (
-                      <span className="category-tag">
-                        {CATEGORY_LABELS[app.dev_category] || app.dev_category}
+                  </div>
+
+                  {app.location && (
+                    <div className="flex items-start gap-1.5 mb-1.5">
+                      <MapPin className="w-3.5 h-3.5 text-[var(--text-muted)] mt-0.5 flex-shrink-0" />
+                      <span className="text-sm font-medium text-[var(--text-primary)]">{app.location}</span>
+                    </div>
+                  )}
+
+                  {app.proposal && (
+                    <p className="text-sm text-[var(--text-secondary)] line-clamp-2 ml-5">
+                      {app.proposal}
+                    </p>
+                  )}
+
+                  {app.applicant_name && (
+                    <div className="flex items-center gap-1.5 mt-2 ml-5">
+                      <Building2 className="w-3 h-3 text-[var(--text-muted)]" />
+                      <span className="text-xs text-[var(--text-muted)]">{app.applicant_name}</span>
+                    </div>
+                  )}
+
+                  {/* Phase 2 fields */}
+                  <div className="flex flex-wrap items-center gap-2 mt-2 ml-5">
+                    {app.planning_authority && (
+                      <span className="text-xs px-1.5 py-0.5 rounded bg-blue-50 text-blue-700" style={{ fontSize: '0.65rem' }}>
+                        {app.planning_authority}
+                      </span>
+                    )}
+                    {app.lifecycle_stage && (
+                      <span
+                        className="text-xs px-1.5 py-0.5 rounded text-white"
+                        style={{ backgroundColor: LIFECYCLE_COLORS[app.lifecycle_stage] || '#6b7280', fontSize: '0.65rem' }}
+                      >
+                        {LIFECYCLE_STAGES[app.lifecycle_stage] || app.lifecycle_stage}
+                      </span>
+                    )}
+                    {app.est_value_high && (
+                      <span className="text-xs font-semibold text-emerald-600" style={{ fontSize: '0.7rem' }}>
+                        {formatValue(app.est_value_high)}
+                      </span>
+                    )}
+                    {app.num_residential_units && app.num_residential_units > 0 && (
+                      <span className="text-xs text-[var(--text-muted)]">
+                        {app.num_residential_units} units
                       </span>
                     )}
                   </div>
-                  <span className="text-xs text-[var(--text-muted)]">
-                    {formatDate(app.apn_date)}
-                  </span>
                 </div>
-
-                {app.location && (
-                  <div className="flex items-start gap-1.5 mb-1.5">
-                    <MapPin className="w-3.5 h-3.5 text-[var(--text-muted)] mt-0.5 flex-shrink-0" />
-                    <span className="text-sm font-medium text-[var(--text-primary)]">{app.location}</span>
-                  </div>
-                )}
-
-                {app.proposal && (
-                  <p className="text-sm text-[var(--text-secondary)] line-clamp-2 ml-5">
-                    {app.proposal}
-                  </p>
-                )}
-
-                {app.applicant_name && (
-                  <div className="flex items-center gap-1.5 mt-2 ml-5">
-                    <Building2 className="w-3 h-3 text-[var(--text-muted)]" />
-                    <span className="text-xs text-[var(--text-muted)]">{app.applicant_name}</span>
-                  </div>
-                )}
-
-                {/* Phase 2 fields */}
-                <div className="flex flex-wrap items-center gap-2 mt-2 ml-5">
-                  {app.planning_authority && (
-                    <span className="text-xs px-1.5 py-0.5 rounded bg-blue-50 text-blue-700" style={{ fontSize: '0.65rem' }}>
-                      {app.planning_authority}
-                    </span>
-                  )}
-                  {app.lifecycle_stage && (
-                    <span
-                      className="text-xs px-1.5 py-0.5 rounded text-white"
-                      style={{ backgroundColor: LIFECYCLE_COLORS[app.lifecycle_stage] || '#6b7280', fontSize: '0.65rem' }}
-                    >
-                      {LIFECYCLE_STAGES[app.lifecycle_stage] || app.lifecycle_stage}
-                    </span>
-                  )}
-                  {app.est_value_high && (
-                    <span className="text-xs font-semibold text-emerald-600" style={{ fontSize: '0.7rem' }}>
-                      {formatValue(app.est_value_high)}
-                    </span>
-                  )}
-                  {app.num_residential_units && app.num_residential_units > 0 && (
-                    <span className="text-xs text-[var(--text-muted)]">
-                      {app.num_residential_units} units
-                    </span>
-                  )}
-                </div>
-              </div>
-            </Link>
+              </Link>
+            </div>
           ))}
 
           {results && results.results.length === 0 && (

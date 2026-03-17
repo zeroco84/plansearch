@@ -454,3 +454,136 @@ export interface DigestResponse {
 export async function getLatestDigest(): Promise<DigestResponse> {
   return fetchApi<DigestResponse>('/api/digest/latest');
 }
+
+// ── Phase 3: The Build Integration ────────────────────────────────────
+
+export interface InsightsPost {
+  id: number;
+  slug: string;
+  title: string;
+  subtitle: string | null;
+  excerpt: string | null;
+  featured_image_url: string | null;
+  substack_url: string;
+  published_at: string | null;
+  summary_one_line: string | null;
+  topics: string[];
+  mentioned_councils: string[];
+  tone: string | null;
+  related_app_count: number;
+}
+
+export interface LinkedApplication {
+  id: number;
+  reg_ref: string;
+  proposal: string | null;
+  location: string | null;
+  decision: string | null;
+  planning_authority: string | null;
+  lifecycle_stage: string | null;
+  est_value_high: number | null;
+  link_type: string;
+  confidence: number;
+}
+
+export interface InsightsPostDetail extends InsightsPost {
+  related_applications: LinkedApplication[];
+}
+
+export interface InsightsFeedResponse {
+  posts: InsightsPost[];
+  total: number;
+  page: number;
+  total_pages: number;
+}
+
+export async function getInsightsFeed(page: number = 1): Promise<InsightsFeedResponse> {
+  return fetchApi<InsightsFeedResponse>(`/api/insights?page=${page}&page_size=12`);
+}
+
+export async function getInsightsPost(slug: string): Promise<InsightsPostDetail> {
+  return fetchApi<InsightsPostDetail>(`/api/insights/${slug}`);
+}
+
+export async function getInsightsByTopic(topic: string, page: number = 1): Promise<InsightsFeedResponse> {
+  return fetchApi<InsightsFeedResponse>(`/api/insights/topic/${topic}?page=${page}`);
+}
+
+export interface BuildRelatedPost {
+  slug: string;
+  title: string;
+  excerpt: string | null;
+  tone: string | null;
+  published_at: string | null;
+  substack_url: string;
+  link_type: string;
+  confidence: number;
+}
+
+export async function getRelatedPosts(regRef: string): Promise<{ posts: BuildRelatedPost[] }> {
+  return fetchApi<{ posts: BuildRelatedPost[] }>(`/api/insights/related/${encodeURIComponent(regRef)}`);
+}
+
+// ── Phase 3: Advertising ─────────────────────────────────────────────
+
+export interface AdDisplay {
+  campaign_id: number;
+  advertiser: string;
+  headline: string | null;
+  body_text: string | null;
+  cta_text: string | null;
+  cta_url: string | null;
+  logo_url: string | null;
+  campaign_type: string;
+}
+
+export async function getContextualAd(params: {
+  dev_category?: string;
+  council?: string;
+  lifecycle_stage?: string;
+  page_path?: string;
+}): Promise<AdDisplay | null> {
+  const qs = new URLSearchParams();
+  if (params.dev_category) qs.set('dev_category', params.dev_category);
+  if (params.council) qs.set('council', params.council);
+  if (params.lifecycle_stage) qs.set('lifecycle_stage', params.lifecycle_stage);
+  if (params.page_path) qs.set('page_path', params.page_path);
+  try {
+    return await fetchApi<AdDisplay>(`/api/ads/contextual?${qs.toString()}`);
+  } catch {
+    return null;
+  }
+}
+
+export async function recordAdClick(campaignId: number): Promise<void> {
+  await fetch(`${API_BASE}/api/ads/click/${campaignId}`, { method: 'POST' });
+}
+
+export const TOPIC_LABELS: Record<string, string> = {
+  judicial_review: 'Judicial Review',
+  LRD: 'LRD',
+  SHD: 'SHD',
+  student_accommodation: 'Student Accommodation',
+  build_to_rent: 'Build to Rent',
+  social_housing: 'Social Housing',
+  apartment_guidelines: 'Apartment Guidelines',
+  planning_reform: 'Planning Reform',
+  ABP: 'An Bord Pleanála',
+  further_information: 'Further Information',
+  infrastructure: 'Infrastructure',
+  viability: 'Viability',
+};
+
+export const TONE_LABELS: Record<string, string> = {
+  analysis: 'Analysis',
+  opinion: 'Opinion',
+  case_study: 'Case Study',
+  news: 'News',
+};
+
+export const TONE_COLORS: Record<string, string> = {
+  analysis: '#3b82f6',
+  opinion: '#f59e0b',
+  case_study: '#8b5cf6',
+  news: '#10b981',
+};

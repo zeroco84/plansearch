@@ -15,10 +15,14 @@ from unittest.mock import MagicMock, patch
 
 
 # ── Setup mock database module before any app imports ──────────────────
-# This prevents SQLAlchemy from trying to connect to PostgreSQL
+# Use a real DeclarativeBase so ORM models get proper __table__ metadata
+from sqlalchemy.orm import DeclarativeBase
+
+class _MockBase(DeclarativeBase):
+    pass
 
 mock_database = types.ModuleType("app.database")
-mock_database.Base = MagicMock()
+mock_database.Base = _MockBase
 mock_database.get_db = MagicMock()
 sys.modules.setdefault("app.database", mock_database)
 

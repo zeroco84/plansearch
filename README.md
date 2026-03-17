@@ -24,6 +24,10 @@ Search, classify, and explore 650,000+ planning applications across all 31 Irish
 - **Admin control centre** — token-protected dashboard for API key management, sync triggers, classification batches, and real-time progress via SSE
 - **CSV export** — download filtered search results as CSV (up to 10,000 rows)
 - **Significant page** — filterable view of high-value planning approvals sorted by estimated construction value
+- **/insights section** — editorial content from The Build newsletter (via Substack RSS), AI-linked to relevant planning applications, with topic and council filtering
+- **Content linking** — Claude AI extracts metadata from newsletter posts and links them to matching planning applications by reference, location, and topic
+- **Contextual advertising** — privacy-first promoted cards in search results with contextual targeting by development category, council, and lifecycle stage — no tracking cookies, no surveillance
+- **Substack integration** — embedded subscribe widget, UTM-tracked outbound links, and reverse integration showing "From The Build" panels on application detail pages
 
 ## Tech Stack
 

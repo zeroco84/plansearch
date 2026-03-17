@@ -1,5 +1,5 @@
 #!/bin/bash
-# PlanSearch Phase 2 — Cron Jobs
+# PlanSearch Phase 1-3 — Cron Jobs
 # Install: crontab -e, paste entries below
 #
 # Ensure environment variables are set:
@@ -98,6 +98,31 @@ async def run():
         await generate_weekly_digest(db)
 asyncio.run(run())
 " 2>&1 | tee -a /var/log/plansearch/digest.log
+
+
+# ── Phase 3 (The Build + Advertising) ─────────────────────────────────
+
+# Substack RSS ingest: every 6 hours (per spec 23.7)
+0 */6 * * * cd /opt/plansearch && /usr/local/bin/python -c "
+import asyncio
+from app.database import async_session
+from app.workers.substack_ingest import ingest_substack_posts
+async def run():
+    async with async_session() as db:
+        await ingest_substack_posts(db)
+asyncio.run(run())
+" 2>&1 | tee -a /var/log/plansearch/substack.log
+
+# AI content linking for unlinked posts: 30 min after RSS ingest (per spec 23.7)
+30 */6 * * * cd /opt/plansearch && /usr/local/bin/python -c "
+import asyncio
+from app.database import async_session
+from app.workers.content_linker import link_unlinked_posts
+async def run():
+    async with async_session() as db:
+        await link_unlinked_posts(db)
+asyncio.run(run())
+" 2>&1 | tee -a /var/log/plansearch/content_link.log
 
 # Database backup: daily at 00:00
 0 0 * * * /opt/plansearch/scripts/backup.sh 2>&1 | tee -a /var/log/plansearch/backup.log
