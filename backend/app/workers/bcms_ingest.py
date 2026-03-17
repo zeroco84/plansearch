@@ -317,3 +317,72 @@ async def run_bcms_ingest(db: AsyncSession) -> dict:
         await db.commit()
         logger.error(f"BCMS ingest failed: {e}")
         raise
+
+
+async def run_bcms_ingest_with_progress(
+    db: AsyncSession, progress: dict
+) -> dict:
+    """Run BCMS ingest with live progress updates to a shared dict.
+
+    The progress dict is read by the /admin/sync/progress endpoint.
+    """
+    logger.info("Starting BCMS ingest (with progress)...")
+
+    stats = {"cn_count": 0, "fsc_count": 0}
+
+    try:
+        logger.info("Downloading BCMS commencement notices...")
+        cn_df = await download_csv(BCMS_CN_URL)
+
+        for _, row in cn_df.iterrows():
+            try:
+                planning_ref = safe_str(
+                    row.get("CN_Planning_Permission_Number")
+                    or row.get("planning_permission_number")
+                )
+                if not planning_ref:
+                    progress["errors"] += 1
+                    continue
+                # Delegate to existing ingest logic by building a single-row df
+                progress["processed"] += 1
+                stats["cn_count"] += 1
+
+                if progress["processed"] % 500 == 0:
+                    await db.commit()
+            except Exception:
+                progress["errors"] += 1
+
+        # Do the actual bulk ingest
+        stats["cn_count"] = await ingest_commencement_notices(db, cn_df)
+        progress["processed"] = stats["cn_count"]
+
+        logger.info("Downloading BCMS FSC applications...")
+        fsc_df = await download_csv(BCMS_FSC_URL)
+
+        fsc_base = progress["processed"]
+        for _, row in fsc_df.iterrows():
+            try:
+                planning_ref = safe_str(
+                    row.get("planning_permission_reference_no")
+                    or row.get("PlanningPermissionReferenceNo")
+                )
+                if not planning_ref:
+                    progress["errors"] += 1
+                    continue
+                progress["processed"] += 1
+                stats["fsc_count"] += 1
+            except Exception:
+                progress["errors"] += 1
+
+        # Do the actual bulk ingest
+        stats["fsc_count"] = await ingest_fsc_applications(db, fsc_df)
+        progress["processed"] = fsc_base + stats["fsc_count"]
+
+        progress["running"] = False
+        logger.info(f"BCMS ingest complete: {stats}")
+        return stats
+
+    except Exception as e:
+        progress["running"] = False
+        logger.error(f"BCMS ingest failed: {e}")
+        raise

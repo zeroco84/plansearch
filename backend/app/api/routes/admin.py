@@ -31,6 +31,15 @@ settings = get_settings()
 # In-memory SSE event queue for live progress
 _sse_events: list[dict] = []
 
+# In-memory sync progress — updated by background tasks, read by polling endpoint
+sync_progress = {
+    "running": False,
+    "processed": 0,
+    "errors": 0,
+    "started_at": None,
+    "source": None,
+}
+
 
 def verify_admin_token(authorization: str = Header(...)):
     """Verify the admin bearer token."""
@@ -170,12 +179,24 @@ async def update_cro_key(
 
 # ── Sync Controls ────────────────────────────────────────────────────────
 
+@router.get("/admin/sync/progress")
+async def get_sync_progress(
+    _token: str = Depends(verify_admin_token),
+):
+    """Get live sync progress — polled by the frontend every 3 seconds."""
+    return sync_progress
+
+
 @router.post("/admin/sync/trigger", response_model=SyncTriggerResponse)
 async def trigger_sync(
     _token: str = Depends(verify_admin_token),
     db: AsyncSession = Depends(get_db),
 ):
     """Trigger NPAD data sync (default sync source)."""
+    sync_progress.update({
+        "running": True, "processed": 0, "errors": 0,
+        "started_at": datetime.utcnow().isoformat(), "source": "npad",
+    })
     sync_log = SyncLog(sync_type="npad_ingest", status="running")
     db.add(sync_log)
     await db.flush()
@@ -191,6 +212,10 @@ async def trigger_npad_sync(
     db: AsyncSession = Depends(get_db),
 ):
     """Trigger NPAD ArcGIS ingest — all 31 local authorities."""
+    sync_progress.update({
+        "running": True, "processed": 0, "errors": 0,
+        "started_at": datetime.utcnow().isoformat(), "source": "npad",
+    })
     sync_log = SyncLog(sync_type="npad_ingest", status="running")
     db.add(sync_log)
     await db.flush()
@@ -206,6 +231,10 @@ async def trigger_bcms_sync(
     db: AsyncSession = Depends(get_db),
 ):
     """Trigger BCMS ingest — commencement notices + FSC applications."""
+    sync_progress.update({
+        "running": True, "processed": 0, "errors": 0,
+        "started_at": datetime.utcnow().isoformat(), "source": "bcms",
+    })
     sync_log = SyncLog(sync_type="bcms_ingest", status="running")
     db.add(sync_log)
     await db.flush()
@@ -216,24 +245,25 @@ async def trigger_bcms_sync(
 
 
 async def _run_npad_background(sync_id: int):
-    """Run NPAD ingest in background and update sync log."""
-    from app.workers.npad_ingest import run_npad_ingest
+    """Run NPAD ingest in background, updating sync_progress in real-time."""
+    from app.workers.npad_ingest import run_npad_ingest_with_progress
 
     async with async_session_factory() as db:
         try:
-            stats = await run_npad_ingest(db)
+            stats = await run_npad_ingest_with_progress(db, sync_progress)
             await db.execute(
                 update(SyncLog)
                 .where(SyncLog.id == sync_id)
                 .values(
                     status="completed",
                     completed_at=datetime.utcnow(),
-                    records_processed=stats.get("processed", 0),
+                    records_processed=sync_progress["processed"],
                 )
             )
             await db.commit()
             _sse_events.append({"event": "sync_complete", "data": json.dumps(stats)})
         except Exception as e:
+            sync_progress["running"] = False
             await db.execute(
                 update(SyncLog)
                 .where(SyncLog.id == sync_id)
@@ -248,25 +278,25 @@ async def _run_npad_background(sync_id: int):
 
 
 async def _run_bcms_background(sync_id: int):
-    """Run BCMS ingest in background and update sync log."""
-    from app.workers.bcms_ingest import run_bcms_ingest
+    """Run BCMS ingest in background, updating sync_progress in real-time."""
+    from app.workers.bcms_ingest import run_bcms_ingest_with_progress
 
     async with async_session_factory() as db:
         try:
-            stats = await run_bcms_ingest(db)
-            total = stats.get("cn_count", 0) + stats.get("fsc_count", 0)
+            stats = await run_bcms_ingest_with_progress(db, sync_progress)
             await db.execute(
                 update(SyncLog)
                 .where(SyncLog.id == sync_id)
                 .values(
                     status="completed",
                     completed_at=datetime.utcnow(),
-                    records_processed=total,
+                    records_processed=sync_progress["processed"],
                 )
             )
             await db.commit()
             _sse_events.append({"event": "sync_complete", "data": json.dumps(stats)})
         except Exception as e:
+            sync_progress["running"] = False
             await db.execute(
                 update(SyncLog)
                 .where(SyncLog.id == sync_id)

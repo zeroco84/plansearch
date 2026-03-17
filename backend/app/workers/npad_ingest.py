@@ -213,3 +213,61 @@ async def run_npad_ingest(
         await db.commit()
         logger.error(f"NPAD ingest failed: {e}")
         raise
+
+
+async def run_npad_ingest_with_progress(
+    db: AsyncSession, progress: dict, limit: Optional[int] = None
+) -> dict:
+    """Run NPAD ingest with live progress updates to a shared dict.
+
+    The progress dict is read by the /admin/sync/progress endpoint
+    and polled by the frontend every 3 seconds.
+    """
+    logger.info("Starting NPAD ingest (with progress)...")
+
+    try:
+        async with httpx.AsyncClient(
+            headers=HEADERS, follow_redirects=True
+        ) as client:
+            offset = 0
+            while True:
+                logger.info(f"Fetching NPAD page at offset {offset}...")
+                records = await fetch_npad_page(client, offset)
+
+                if not records:
+                    logger.info("No more records — ingest complete")
+                    break
+
+                for attrs in records:
+                    ok = await upsert_npad_record(db, attrs)
+                    if ok:
+                        progress["processed"] += 1
+                    else:
+                        progress["errors"] += 1
+
+                    if progress["processed"] % 500 == 0 and progress["processed"] > 0:
+                        await db.commit()
+                        logger.info(f"Committed {progress['processed']} records...")
+
+                    if limit and progress["processed"] >= limit:
+                        break
+
+                await db.commit()
+                offset += PAGE_SIZE
+
+                if len(records) < PAGE_SIZE:
+                    break
+                if limit and progress["processed"] >= limit:
+                    break
+
+        progress["running"] = False
+        logger.info(
+            f"NPAD ingest complete: {progress['processed']} processed, "
+            f"{progress['errors']} errors"
+        )
+        return {"processed": progress["processed"], "errors": progress["errors"]}
+
+    except Exception as e:
+        progress["running"] = False
+        logger.error(f"NPAD ingest failed: {e}")
+        raise

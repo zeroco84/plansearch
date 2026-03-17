@@ -237,6 +237,12 @@ export async function triggerBcmsSync(token: string) {
   });
 }
 
+export async function fetchSyncProgress(token: string) {
+  return fetchApi('/api/admin/sync/progress', {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
 export async function triggerBenchmarkScrape(token: string) {
   return fetchApi('/api/admin/benchmarks/scrape', {
     method: 'POST',

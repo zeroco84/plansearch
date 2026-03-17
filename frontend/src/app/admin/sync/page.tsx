@@ -1,9 +1,20 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
-import { Database, ArrowLeft, RefreshCw, Play, CheckCircle, XCircle, Clock, Settings, Search, TrendingUp, BookOpen, Map as MapIcon, Building2 } from 'lucide-react';
-import { triggerNpadSync, triggerBcmsSync, getSyncStatus, getAdminLogs } from '@/lib/api';
+import {
+  Database, ArrowLeft, RefreshCw, Play, CheckCircle, XCircle,
+  Settings, Search, TrendingUp, BookOpen, Map as MapIcon, Building2,
+} from 'lucide-react';
+import { triggerNpadSync, triggerBcmsSync, fetchSyncProgress, getSyncStatus, getAdminLogs } from '@/lib/api';
+
+interface SyncProgress {
+  running: boolean;
+  processed: number;
+  errors: number;
+  started_at: string | null;
+  source: string | null;
+}
 
 export default function SyncPage() {
   const [token, setToken] = useState('');
@@ -12,14 +23,53 @@ export default function SyncPage() {
   const [triggeringNpad, setTriggeringNpad] = useState(false);
   const [triggeringBcms, setTriggeringBcms] = useState(false);
   const [message, setMessage] = useState('');
+  const [progress, setProgress] = useState<SyncProgress | null>(null);
+  const [polling, setPolling] = useState(false);
+  const pollingRef = useRef(false);
 
   useEffect(() => {
     const saved = localStorage.getItem('plansearch_admin_token');
     if (saved) {
       setToken(saved);
       loadData(saved);
+      // Check if a sync is already running on page load
+      checkExistingProgress(saved);
     }
   }, []);
+
+  // Polling effect
+  useEffect(() => {
+    pollingRef.current = polling;
+    if (!polling || !token) return;
+
+    const interval = setInterval(async () => {
+      if (!pollingRef.current) return;
+      try {
+        const prog = await fetchSyncProgress(token) as SyncProgress;
+        setProgress(prog);
+        if (!prog.running) {
+          setPolling(false);
+          pollingRef.current = false;
+          loadData(token);
+        }
+      } catch {
+        setPolling(false);
+        pollingRef.current = false;
+      }
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, [polling, token]);
+
+  const checkExistingProgress = async (t: string) => {
+    try {
+      const prog = await fetchSyncProgress(t) as SyncProgress;
+      if (prog.running) {
+        setProgress(prog);
+        setPolling(true);
+      }
+    } catch {}
+  };
 
   const loadData = async (t: string) => {
     try {
@@ -38,10 +88,11 @@ export default function SyncPage() {
     setTriggeringNpad(true);
     setMessage('');
     try {
-      const result = await triggerNpadSync(token) as any;
-      setMessage(result.message || 'NPAD sync triggered');
-      setTimeout(() => loadData(token), 5000);
-    } catch (err) {
+      await triggerNpadSync(token);
+      setMessage('NPAD sync triggered');
+      setProgress({ running: true, processed: 0, errors: 0, started_at: new Date().toISOString(), source: 'npad' });
+      setPolling(true);
+    } catch {
       setMessage('Failed to trigger NPAD sync');
     } finally {
       setTriggeringNpad(false);
@@ -52,15 +103,18 @@ export default function SyncPage() {
     setTriggeringBcms(true);
     setMessage('');
     try {
-      const result = await triggerBcmsSync(token) as any;
-      setMessage(result.message || 'BCMS sync triggered');
-      setTimeout(() => loadData(token), 5000);
-    } catch (err) {
+      await triggerBcmsSync(token);
+      setMessage('BCMS sync triggered');
+      setProgress({ running: true, processed: 0, errors: 0, started_at: new Date().toISOString(), source: 'bcms' });
+      setPolling(true);
+    } catch {
       setMessage('Failed to trigger BCMS sync');
     } finally {
       setTriggeringBcms(false);
     }
   };
+
+  const sourceLabel = progress?.source === 'bcms' ? 'BCMS' : 'NPAD';
 
   return (
     <main style={{ minHeight: '100vh', background: '#f9f8f6' }}>
@@ -80,21 +134,67 @@ export default function SyncPage() {
         </div>
       </nav>
 
-      <div style={{ maxWidth: '900px', margin: '0 auto', padding: '1.5rem 2rem 4rem' }}>
+      <div style={{ maxWidth: '900px', margin: '0 auto', padding: '2rem 2rem 4rem' }}>
         <Link href="/admin" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem', fontSize: '0.875rem', color: 'var(--text-muted)', textDecoration: 'none', marginBottom: '1.5rem' }}>
           <ArrowLeft style={{ width: '16px', height: '16px' }} /> Back to Admin
         </Link>
 
-        <h1 style={{ fontSize: '1.5rem', fontWeight: '600', marginBottom: '1.5rem', fontFamily: "'Playfair Display', serif" }}>Data Sync Controls</h1>
+        <h1 style={{ fontSize: '1.5rem', fontWeight: '600', marginBottom: '2rem', fontFamily: "'Playfair Display', serif" }}>Data Sync Controls</h1>
 
         {message && (
-          <div style={{ marginBottom: '1rem', padding: '0.75rem 1rem', background: '#ecfdf5', borderRadius: '8px', fontSize: '0.875rem', color: '#065f46', border: '1px solid #a7f3d0' }}>
+          <div style={{ marginBottom: '1.25rem', padding: '0.75rem 1rem', background: '#ecfdf5', borderRadius: '8px', fontSize: '0.875rem', color: '#065f46', border: '1px solid #a7f3d0' }}>
             {message}
           </div>
         )}
 
+        {/* Live Progress Counter */}
+        {progress?.running && (
+          <div style={{
+            marginBottom: '1.25rem', padding: '1.25rem 1.5rem',
+            background: '#f0fdfb', border: '1px solid #1d9e75', borderRadius: '10px',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
+              <div style={{
+                width: '10px', height: '10px', borderRadius: '50%',
+                background: '#1d9e75', animation: 'syncPulse 1.2s ease-in-out infinite',
+              }} />
+              <span style={{ fontSize: '0.9rem', fontWeight: '600', color: '#065f46' }}>
+                {sourceLabel} sync running...
+              </span>
+            </div>
+            <div style={{ fontSize: '2rem', fontWeight: '700', color: '#1d9e75', letterSpacing: '-0.02em', lineHeight: 1.1 }}>
+              {progress.processed.toLocaleString()}
+            </div>
+            <div style={{ fontSize: '0.8rem', color: '#6b7280', marginTop: '4px' }}>
+              records loaded
+              {progress.errors > 0 && (
+                <span style={{ color: '#dc2626', marginLeft: '12px' }}>
+                  {progress.errors.toLocaleString()} errors
+                </span>
+              )}
+            </div>
+            {progress.started_at && (
+              <div style={{ fontSize: '0.7rem', color: '#9ca3af', marginTop: '6px' }}>
+                Started {new Date(progress.started_at).toLocaleTimeString('en-IE')}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Completion banner */}
+        {progress && !progress.running && progress.processed > 0 && (
+          <div style={{
+            marginBottom: '1.25rem', padding: '1rem 1.25rem',
+            background: '#f0fdfb', border: '1px solid #1d9e75', borderRadius: '10px',
+          }}>
+            <span style={{ color: '#065f46', fontWeight: '600' }}>
+              ✓ Sync complete — {progress.processed.toLocaleString()} records loaded
+            </span>
+          </div>
+        )}
+
         {/* NPAD Sync */}
-        <div className="admin-card" style={{ marginBottom: '1.5rem', padding: '1.5rem' }}>
+        <div className="admin-card" style={{ marginBottom: '1.25rem', padding: '1.5rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem' }}>
             <Database style={{ width: '18px', height: '18px', color: 'var(--teal)' }} />
             <h3 style={{ fontSize: '1rem', fontWeight: '600', margin: 0 }}>NPAD — Planning Applications</h3>
@@ -106,16 +206,16 @@ export default function SyncPage() {
           <button
             className="btn-primary"
             onClick={handleNpadSync}
-            disabled={triggeringNpad}
+            disabled={triggeringNpad || (progress?.running ?? false)}
             style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}
           >
             {triggeringNpad ? <RefreshCw style={{ width: '16px', height: '16px', animation: 'spin 1s linear infinite' }} /> : <Play style={{ width: '16px', height: '16px' }} />}
-            {triggeringNpad ? 'Syncing...' : 'Trigger NPAD Sync'}
+            {triggeringNpad ? 'Starting...' : progress?.running && progress?.source === 'npad' ? 'Running...' : 'Trigger NPAD Sync'}
           </button>
         </div>
 
         {/* BCMS Sync */}
-        <div className="admin-card" style={{ marginBottom: '1.5rem', padding: '1.5rem' }}>
+        <div className="admin-card" style={{ marginBottom: '1.25rem', padding: '1.5rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem' }}>
             <Building2 style={{ width: '18px', height: '18px', color: '#f59e0b' }} />
             <h3 style={{ fontSize: '1rem', fontWeight: '600', margin: 0 }}>BCMS — Building Control</h3>
@@ -127,17 +227,17 @@ export default function SyncPage() {
           <button
             className="btn-primary"
             onClick={handleBcmsSync}
-            disabled={triggeringBcms}
+            disabled={triggeringBcms || (progress?.running ?? false)}
             style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', background: '#f59e0b' }}
           >
             {triggeringBcms ? <RefreshCw style={{ width: '16px', height: '16px', animation: 'spin 1s linear infinite' }} /> : <Play style={{ width: '16px', height: '16px' }} />}
-            {triggeringBcms ? 'Syncing...' : 'Trigger BCMS Sync'}
+            {triggeringBcms ? 'Starting...' : progress?.running && progress?.source === 'bcms' ? 'Running...' : 'Trigger BCMS Sync'}
           </button>
         </div>
 
         {/* Last Sync Status */}
         {syncStatus && (
-          <div className="admin-card" style={{ marginBottom: '1.5rem', padding: '1.5rem' }}>
+          <div className="admin-card" style={{ marginBottom: '1.25rem', padding: '1.5rem' }}>
             <h3 style={{ fontSize: '1rem', fontWeight: '600', marginBottom: '1rem' }}>Last Sync</h3>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '1rem' }}>
               <div>
@@ -191,6 +291,13 @@ export default function SyncPage() {
           )}
         </div>
       </div>
+
+      <style jsx>{`
+        @keyframes syncPulse {
+          0%, 100% { opacity: 1; transform: scale(1); }
+          50% { opacity: 0.5; transform: scale(1.3); }
+        }
+      `}</style>
     </main>
   );
 }
