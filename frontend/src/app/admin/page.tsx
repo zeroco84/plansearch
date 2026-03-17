@@ -78,21 +78,23 @@ export default function AdminPage() {
   const scrapedPct = stats ? Math.round((stats.total_applicants_scraped / Math.max(stats.total_applications, 1)) * 100) : 0;
 
   return (
-    <main className="min-h-screen bg-[var(--warm-white)]">
-      {/* Nav */}
-      <nav className="hero-gradient" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-        <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
+    <main className="min-h-screen flex flex-col" style={{ background: '#f9f8f6' }}>
+      {/* Nav — matches homepage */}
+      <nav style={{ background: '#0d1117', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+        <div className="max-w-7xl mx-auto px-8 flex items-center justify-between" style={{ height: '64px' }}>
           <div className="flex items-center gap-4">
             <Link href="/" className="flex items-center gap-2 text-white no-underline">
               <Database className="w-5 h-5 text-[var(--teal)]" />
-              <span className="font-semibold text-lg" style={{ fontFamily: "'Playfair Display', serif" }}>PlanSearch</span>
+              <span style={{ color: 'white', fontSize: '1.125rem', fontWeight: '600', letterSpacing: '-0.01em', fontFamily: "'Playfair Display', serif" }}>PlanSearch</span>
             </Link>
-            <span className="text-white/30">|</span>
-            <span className="text-white/70 text-sm flex items-center gap-1"><Settings className="w-4 h-4" /> Admin Centre</span>
+            <span style={{ color: 'rgba(255,255,255,0.2)' }}>|</span>
+            <span className="flex items-center gap-1.5" style={{ color: 'rgba(255,255,255,0.6)', fontSize: '0.9rem' }}>
+              <Settings className="w-4 h-4" /> Admin Centre
+            </span>
           </div>
           <div className="flex items-center gap-1">
             <Link href="/" className="nav-link">Search</Link>
-            <Link href="/map" className="nav-link"><MapIcon className="w-4 h-4" /> Map</Link>
+            <Link href="/map" className="nav-link"><MapIcon className="w-5 h-5" /> Map</Link>
             <button
               onClick={() => { localStorage.removeItem('plansearch_admin_token'); setAuthenticated(false); }}
               className="nav-link"
@@ -103,8 +105,8 @@ export default function AdminPage() {
         </div>
       </nav>
 
-      <div className="max-w-7xl mx-auto px-4 py-8">
-        <h1 className="text-2xl mb-8" style={{ fontFamily: "'Playfair Display', serif" }}>Control Centre</h1>
+      <div style={{ maxWidth: '1100px', margin: '0 auto', width: '100%', padding: '2rem 2rem 4rem' }}>
+        <h1 style={{ fontSize: '1.75rem', fontFamily: "'Playfair Display', serif", marginBottom: '2rem', color: '#1a1a2e' }}>Control Centre</h1>
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
@@ -137,14 +139,14 @@ export default function AdminPage() {
         {/* Category Breakdown */}
         {stats && Object.keys(stats.categories).length > 0 && (
           <div className="admin-card mb-6">
-            <h3 className="text-lg mb-4" style={{ fontFamily: "'Playfair Display', serif" }}>Classification Breakdown</h3>
+            <h3 style={{ fontSize: '1.1rem', fontFamily: "'Playfair Display', serif", marginBottom: '1rem' }}>Classification Breakdown</h3>
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
               {Object.entries(stats.categories)
                 .sort(([, a], [, b]) => b - a)
                 .map(([cat, count]) => (
-                  <div key={cat} className="p-3 bg-[var(--warm-white)] rounded-lg">
-                    <div className="text-sm font-semibold text-[var(--teal)]">{count.toLocaleString()}</div>
-                    <div className="text-xs text-[var(--text-muted)]">{CATEGORY_LABELS[cat] || cat}</div>
+                  <div key={cat} style={{ padding: '0.75rem', background: '#f9f8f6', borderRadius: '8px' }}>
+                    <div style={{ fontSize: '0.9rem', fontWeight: '600', color: 'var(--teal)' }}>{count.toLocaleString()}</div>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{CATEGORY_LABELS[cat] || cat}</div>
                   </div>
                 ))}
             </div>
