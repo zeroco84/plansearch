@@ -5,7 +5,7 @@ import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import {
   Database, Settings, Search, Filter, ArrowLeft,
-  Map as MapIcon, List
+  Map as MapIcon, List, TrendingUp, BookOpen
 } from 'lucide-react';
 import {
   getMapPoints, MapFeatureCollection, SearchParams,
@@ -74,64 +74,75 @@ export default function MapPage() {
   }, [loadMapData]);
 
   return (
-    <main className="h-screen flex flex-col">
-      {/* Nav */}
-      <nav className="hero-gradient flex-shrink-0" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-        <div className="max-w-full mx-auto px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Link href="/" className="flex items-center gap-2 text-white no-underline">
-              <Database className="w-5 h-5 text-[var(--teal)]" />
-              <span className="font-semibold text-lg" style={{ fontFamily: "'Playfair Display', serif" }}>PlanSearch</span>
-            </Link>
-            <span className="text-white/30">|</span>
-            <span className="text-white/70 text-sm flex items-center gap-1"><MapIcon className="w-4 h-4" /> Map View</span>
-          </div>
-
-          {/* Map filters */}
-          <div className="flex items-center gap-2">
-            <div className="relative">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/40" />
-              <input
-                type="text"
-                placeholder="Filter map..."
-                className="bg-white/10 text-white text-sm border border-white/15 rounded-lg pl-8 pr-3 py-1.5 focus:outline-none focus:border-[var(--teal)] placeholder:text-white/40"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-              />
-            </div>
-
-            <select
-              className="bg-white/10 text-white text-sm border border-white/15 rounded-lg px-3 py-1.5 focus:outline-none [&>option]:text-black"
-              value={category}
-              onChange={(e) => setCategory(e.target.value)}
-            >
-              <option value="">All Categories</option>
-              {Object.entries(CATEGORY_LABELS).map(([key, label]) => (
-                <option key={key} value={key}>{label}</option>
-              ))}
-            </select>
-
-            <select
-              className="bg-white/10 text-white text-sm border border-white/15 rounded-lg px-3 py-1.5 focus:outline-none [&>option]:text-black"
-              value={decision}
-              onChange={(e) => setDecision(e.target.value)}
-            >
-              {DECISIONS.map(d => <option key={d.value} value={d.value}>{d.label}</option>)}
-            </select>
-
-            {mapData && (
-              <span className="text-white/40 text-xs ml-2">{mapData.total.toLocaleString()} pins</span>
-            )}
-
+    <main style={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
+      {/* Nav — consistent with all pages */}
+      <nav style={{ background: '#0d1117', borderBottom: '1px solid rgba(255,255,255,0.06)', flexShrink: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: '64px', padding: '0 2rem', width: '100%' }}>
+          <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'white', textDecoration: 'none' }}>
+            <Database className="w-5 h-5 text-[var(--teal)]" />
+            <span style={{ color: 'white', fontSize: '1.125rem', fontWeight: '600', letterSpacing: '-0.01em', fontFamily: "'Playfair Display', serif" }}>PlanSearch</span>
+          </Link>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
             <Link href="/" className="nav-link">
-              <List className="w-4 h-4" /> List
+              <Search className="w-5 h-5" />
+              <span className="hidden sm:inline">Search</span>
+            </Link>
+            <Link href="/map" className="nav-link" style={{ color: 'var(--teal)' }}>
+              <MapIcon className="w-5 h-5" />
+              <span className="hidden sm:inline">Map</span>
+            </Link>
+            <Link href="/significant" className="nav-link">
+              <TrendingUp className="w-5 h-5" />
+              <span className="hidden sm:inline">Significant</span>
+            </Link>
+            <Link href="/insights" className="nav-link">
+              <BookOpen className="w-5 h-5" />
+              <span className="hidden sm:inline">Insights</span>
             </Link>
             <Link href="/admin" className="nav-link">
-              <Settings className="w-4 h-4" />
+              <Settings className="w-5 h-5" />
+              <span className="hidden sm:inline">Admin</span>
             </Link>
           </div>
         </div>
       </nav>
+
+      {/* Map filters bar */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.5rem 2rem', background: '#111827', borderBottom: '1px solid rgba(255,255,255,0.06)', flexShrink: 0 }}>
+        <div style={{ position: 'relative' }}>
+          <Search style={{ position: 'absolute', left: '0.625rem', top: '50%', transform: 'translateY(-50%)', width: '14px', height: '14px', color: 'rgba(255,255,255,0.4)' }} />
+          <input
+            type="text"
+            placeholder="Filter map..."
+            style={{ background: 'rgba(255,255,255,0.08)', color: 'white', fontSize: '0.85rem', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '8px', padding: '0.4rem 0.75rem 0.4rem 2rem', outline: 'none' }}
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
+        </div>
+
+        <select
+          style={{ background: 'rgba(255,255,255,0.08)', color: 'white', fontSize: '0.85rem', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '8px', padding: '0.4rem 0.75rem', outline: 'none' }}
+          value={category}
+          onChange={(e) => setCategory(e.target.value)}
+        >
+          <option value="" style={{ color: 'black' }}>All Categories</option>
+          {Object.entries(CATEGORY_LABELS).map(([key, label]) => (
+            <option key={key} value={key} style={{ color: 'black' }}>{label}</option>
+          ))}
+        </select>
+
+        <select
+          style={{ background: 'rgba(255,255,255,0.08)', color: 'white', fontSize: '0.85rem', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '8px', padding: '0.4rem 0.75rem', outline: 'none' }}
+          value={decision}
+          onChange={(e) => setDecision(e.target.value)}
+        >
+          {DECISIONS.map(d => <option key={d.value} value={d.value} style={{ color: 'black' }}>{d.label}</option>)}
+        </select>
+
+        {mapData && (
+          <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.75rem', marginLeft: '0.25rem' }}>{mapData.total.toLocaleString()} pins</span>
+        )}
+      </div>
 
       {/* Map */}
       <div className="flex-1 relative">
