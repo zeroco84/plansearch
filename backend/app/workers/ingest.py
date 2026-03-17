@@ -107,7 +107,12 @@ async def download_csv(url: str, limit: Optional[int] = None) -> pd.DataFrame:
         limit: Optional row limit for testing (first N rows)
     """
     logger.info(f"Downloading CSV from {url}")
-    async with httpx.AsyncClient(timeout=120.0) as client:
+    headers = {
+        "User-Agent": "Mozilla/5.0 (compatible; PlanSearch/1.0; +https://plansearch.cc)",
+        "Accept": "text/csv,text/plain,*/*",
+        "Accept-Language": "en-IE,en;q=0.9",
+    }
+    async with httpx.AsyncClient(headers=headers, follow_redirects=True, timeout=120.0) as client:
         response = await client.get(url)
         response.raise_for_status()
 
