@@ -15,6 +15,7 @@ from app.database import engine, Base
 from app.api.routes import search, applications, map, stats, admin, export, docs, digest
 from app.api.routes import insights, advertising
 from app import models  # noqa: F401 — ensure all models are registered
+from app.models import CostBenchmark, CommencementNotice, FSCApplication  # noqa: F401
 
 logging.basicConfig(
     level=logging.INFO,
