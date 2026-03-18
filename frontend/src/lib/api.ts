@@ -35,6 +35,7 @@ export interface SearchResponse {
   page_size: number;
   total_pages: number;
   query_time_ms: number | null;
+  inferred_location: string | null;
 }
 
 export interface AppealDetail {

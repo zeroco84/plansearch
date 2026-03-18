@@ -79,6 +79,7 @@ class SearchResponse(BaseModel):
     page_size: int
     total_pages: int
     query_time_ms: Optional[float] = None
+    inferred_location: Optional[str] = None
 
 
 # ── Application Detail ──────────────────────────────────────────────────

@@ -5,10 +5,11 @@ GET /api/search — single optimised PostgreSQL query combining:
   - trigram fuzzy matching
   - PostGIS spatial filtering
   - faceted filters (category, decision, year, etc.)
+  - Location-aware query parsing (auto-detects Irish counties/cities)
 """
 
 import time
-from typing import Optional
+from typing import Optional, List
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy import func, text, select, and_, or_, case, literal_column
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -20,6 +21,82 @@ from app.schemas import SearchResponse, ApplicationSummary
 
 router = APIRouter()
 
+
+# ── Location-aware query parsing ─────────────────────────────────────────
+
+LOCATION_AUTHORITY_MAP = {
+    "dublin": [
+        "Dublin City Council",
+        "Fingal County Council",
+        "Dún Laoghaire-Rathdown County Council",
+        "South Dublin County Council",
+    ],
+    "cork": ["Cork City Council", "Cork County Council"],
+    "galway": ["Galway City Council", "Galway County Council"],
+    "limerick": ["Limerick City & County Council"],
+    "waterford": ["Waterford City & County Council"],
+    "tipperary": ["Tipperary County Council"],
+    "kilkenny": ["Kilkenny County Council"],
+    "wexford": ["Wexford County Council"],
+    "wicklow": ["Wicklow County Council"],
+    "kildare": ["Kildare County Council"],
+    "meath": ["Meath County Council"],
+    "louth": ["Louth County Council"],
+    "offaly": ["Offaly County Council"],
+    "laois": ["Laois County Council"],
+    "longford": ["Longford County Council"],
+    "westmeath": ["Westmeath County Council"],
+    "carlow": ["Carlow County Council"],
+    "clare": ["Clare County Council"],
+    "kerry": ["Kerry County Council"],
+    "mayo": ["Mayo County Council"],
+    "roscommon": ["Roscommon County Council"],
+    "sligo": ["Sligo County Council"],
+    "leitrim": ["Leitrim County Council"],
+    "donegal": ["Donegal County Council"],
+    "cavan": ["Cavan County Council"],
+    "monaghan": ["Monaghan County Council"],
+    "fingal": ["Fingal County Council"],
+    "dun laoghaire": ["Dún Laoghaire-Rathdown County Council"],
+    "dlr": ["Dún Laoghaire-Rathdown County Council"],
+    "south dublin": ["South Dublin County Council"],
+}
+
+
+def parse_location_from_query(query: str) -> tuple[str, list[str]]:
+    """Extract location intent from a search query.
+
+    Returns (cleaned_query, list_of_matching_authorities).
+
+    Examples:
+    - "apartments dublin" → ("apartments", [DCC, Fingal, DLRCC, SDCC])
+    - "hotel cork" → ("hotel", [Cork City, Cork County])
+    - "data centre kildare" → ("data centre", [Kildare CC])
+    - "protected structure" → ("protected structure", [])
+    """
+    query_lower = query.lower().strip()
+    matched_authorities: list[str] = []
+    cleaned_query = query_lower
+
+    # Sort by length descending so "dun laoghaire" matches before "dublin", etc.
+    for location_term, authorities in sorted(
+        LOCATION_AUTHORITY_MAP.items(),
+        key=lambda x: len(x[0]),
+        reverse=True,
+    ):
+        if location_term in query_lower:
+            matched_authorities = authorities
+            # Remove the location term from the search query
+            cleaned_query = query_lower.replace(location_term, "").strip()
+            # Clean up any double spaces left behind
+            while "  " in cleaned_query:
+                cleaned_query = cleaned_query.replace("  ", " ")
+            break
+
+    return cleaned_query, matched_authorities
+
+
+# ── Search endpoint ──────────────────────────────────────────────────────
 
 @router.get("/search", response_model=SearchResponse)
 async def search_applications(
@@ -46,15 +123,32 @@ async def search_applications(
     """Search planning applications with full-text, fuzzy, spatial, and faceted filtering.
 
     All parameters are optional and fully composable.
+    Location terms in the query (e.g. "apartments dublin") are automatically
+    detected and applied as planning_authority filters.
     """
     start_time = time.time()
+
+    # ── Parse location intent from free text query ──
+    text_query = q or ""
+    inferred_authorities: list[str] = []
+    inferred_location: Optional[str] = None
+
+    if q and not authority:
+        text_query, inferred_authorities = parse_location_from_query(q)
+        if inferred_authorities:
+            # Derive a friendly label: "Dublin", "Cork", etc.
+            inferred_location = (
+                inferred_authorities[0]
+                .split(" County")[0]
+                .split(" City")[0]
+            )
 
     # Build base query
     conditions = []
 
-    # Full-text search using tsvector
-    if q:
-        ts_query = func.plainto_tsquery("english", q)
+    # Full-text search using plainto_tsquery (handles multi-word naturally)
+    if text_query:
+        ts_query = func.plainto_tsquery("english", text_query)
         conditions.append(Application.search_vector.op("@@")(ts_query))
 
     # Category filter
@@ -95,21 +189,25 @@ async def search_applications(
             )
         )
 
-    # Phase 2: National authority filter
+    # Planning authority filter — explicit param OR inferred from query
     if authority:
         conditions.append(Application.planning_authority == authority)
+    elif inferred_authorities:
+        conditions.append(
+            Application.planning_authority.in_(inferred_authorities)
+        )
 
-    # Phase 2: Lifecycle stage filter
+    # Lifecycle stage filter
     if lifecycle_stage:
         conditions.append(Application.lifecycle_stage == lifecycle_stage)
 
-    # Phase 2: Value range filter
+    # Value range filter
     if value_min is not None:
         conditions.append(Application.est_value_high >= value_min)
     if value_max is not None:
         conditions.append(Application.est_value_high <= value_max)
 
-    # Phase 2: One-off house filter
+    # One-off house filter
     if one_off_house is not None:
         conditions.append(Application.one_off_house == one_off_house)
 
@@ -124,8 +222,8 @@ async def search_applications(
     data_query = select(Application).where(where_clause)
 
     # Add relevance score for full-text queries
-    if q:
-        ts_query = func.plainto_tsquery("english", q)
+    if text_query:
+        ts_query = func.plainto_tsquery("english", text_query)
         rank = func.ts_rank(Application.search_vector, ts_query)
         data_query = data_query.add_columns(rank.label("relevance_score"))
 
@@ -134,8 +232,8 @@ async def search_applications(
         data_query = data_query.order_by(Application.apn_date.desc().nullslast())
     elif sort == "date_asc":
         data_query = data_query.order_by(Application.apn_date.asc().nullsfirst())
-    elif sort == "relevance" and q:
-        ts_query = func.plainto_tsquery("english", q)
+    elif sort == "relevance" and text_query:
+        ts_query = func.plainto_tsquery("english", text_query)
         data_query = data_query.order_by(
             func.ts_rank(Application.search_vector, ts_query).desc()
         )
@@ -156,7 +254,7 @@ async def search_applications(
     # Transform results
     results = []
     for row in rows:
-        if q and len(row) > 1:
+        if text_query and len(row) > 1:
             app, relevance = row
         else:
             app = row[0] if isinstance(row, tuple) else row
@@ -213,4 +311,5 @@ async def search_applications(
         page_size=page_size,
         total_pages=total_pages,
         query_time_ms=round(query_time_ms, 2),
+        inferred_location=inferred_location,
     )
