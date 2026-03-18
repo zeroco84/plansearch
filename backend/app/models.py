@@ -285,7 +285,7 @@ class CommencementNotice(Base):
     __tablename__ = "commencement_notices"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    reg_ref = Column(String(30))
+    reg_ref = Column(String(100), unique=True, index=True, nullable=False)
     local_authority = Column(String(100))
 
     # Commencement
@@ -333,7 +333,7 @@ class FSCApplication(Base):
     __tablename__ = "fsc_applications"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    reg_ref = Column(String(30))
+    reg_ref = Column(String(100), unique=True, index=True, nullable=False)
     application_reference_no = Column(String(50))
     application_type = Column(String(20))
     local_authority = Column(String(100))
