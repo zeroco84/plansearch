@@ -15,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import SyncLog
 from app.utils.text_clean import clean_text, normalise_reg_ref, normalise_decision
+from app.workers.floor_area_extractor import reconcile_floor_area, reconcile_units
 
 logger = logging.getLogger(__name__)
 
@@ -218,8 +219,9 @@ async def upsert_npad_record(db: AsyncSession, attrs: dict) -> bool:
         "final_grant_date":     safe_date(attrs.get("GrantDate")),
         "app_type":             safe_str(attrs.get("ApplicationType")),
         "land_use_code":        safe_str(attrs.get("LandUseCode")),
-        "floor_area":           _safe_floor_area(attrs.get("FloorArea")),
-        "num_residential_units": _safe_units(attrs.get("NumResidentialUnits")),
+        # Floor area and units are reconciled below after description is known
+        "floor_area":           None,  # set after reconciliation
+        "num_residential_units": None,  # set after reconciliation
         "area_of_site":         _safe_area_ha(attrs.get("AreaofSite")),
         "one_off_house":        safe_str(attrs.get("OneOffHouse")) == "Y",
         "link_app_details":     safe_str(attrs.get("LinkAppDetails")),
@@ -237,6 +239,15 @@ async def upsert_npad_record(db: AsyncSession, attrs: dict) -> bool:
     for k in list(values.keys()):
         if isinstance(values[k], str) and values[k] in ("nan", "None", "null", ""):
             values[k] = None
+
+    # ── Cross-check floor area and unit counts against description ──
+    # The description text is the authority — NPAD fields have known bad data.
+    raw_npad_area = _safe_floor_area(attrs.get("FloorArea"))
+    raw_npad_units = _safe_units(attrs.get("NumResidentialUnits"))
+    description = values.get("proposal")
+
+    values["floor_area"] = reconcile_floor_area(raw_npad_area, description)
+    values["num_residential_units"] = reconcile_units(raw_npad_units, description)
 
     try:
         # Savepoint: if this insert fails, roll back only this record

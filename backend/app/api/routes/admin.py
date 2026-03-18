@@ -494,54 +494,103 @@ async def reclassify_by_keyword(
 
 @router.post("/admin/repair/bad-values")
 async def repair_bad_values(
+    background_tasks: BackgroundTasks,
     _token: str = Depends(verify_admin_token),
     db: AsyncSession = Depends(get_db),
 ):
-    """Fix records with bad floor_area/unit data and null their value estimates.
+    """Reconcile floor_area and units against description text for all records.
 
-    - floor_area > 500,000 m² → null (bad NPAD data)
-    - num_residential_units > 10,000 → null
-    - Null est_value_* where est_value_high > €5bn
-    - Re-queue affected records for re-estimation
+    1. Null implausibly high values immediately (est_value_high > €5bn)
+    2. Kick off background task to reconcile floor_area from descriptions
     """
     from sqlalchemy import text as sql_text
 
-    # Fix bad floor areas
+    # Immediate: null obviously broken value estimates
     r1 = await db.execute(sql_text("""
-        UPDATE applications
-        SET floor_area = NULL,
-            est_value_low = NULL, est_value_high = NULL,
-            est_value_basis = NULL, est_value_type = NULL,
-            est_value_confidence = NULL, value_estimated_at = NULL
-        WHERE floor_area > 500000
-    """))
-
-    # Fix bad unit counts
-    r2 = await db.execute(sql_text("""
-        UPDATE applications
-        SET num_residential_units = NULL,
-            est_value_low = NULL, est_value_high = NULL,
-            est_value_basis = NULL, est_value_type = NULL,
-            est_value_confidence = NULL, value_estimated_at = NULL
-        WHERE num_residential_units > 10000
-    """))
-
-    # Fix implausibly high values (even if floor_area was already OK)
-    r3 = await db.execute(sql_text("""
         UPDATE applications
         SET est_value_low = NULL, est_value_high = NULL,
             est_value_basis = NULL, est_value_type = NULL,
             est_value_confidence = NULL, value_estimated_at = NULL
         WHERE est_value_high > 5000000000
     """))
-
     await db.commit()
 
+    # Background: full reconciliation
+    background_tasks.add_task(_run_floor_area_reconciliation, db)
+
     return {
-        "bad_floor_areas_fixed": r1.rowcount,
-        "bad_units_fixed": r2.rowcount,
-        "implausible_values_nulled": r3.rowcount,
+        "implausible_values_nulled": r1.rowcount,
+        "reconciliation": "triggered in background",
     }
+
+
+async def _run_floor_area_reconciliation(db: AsyncSession):
+    """Background task: reconcile floor_area for all records with proposals."""
+    from sqlalchemy import text as sql_text
+    from app.workers.floor_area_extractor import reconcile_floor_area, reconcile_units
+
+    logger.info("Starting floor area reconciliation...")
+
+    # Fetch records that have either:
+    # - A floor_area value to verify
+    # - A proposal with enough text to extract from (even if floor_area is NULL)
+    result = await db.execute(sql_text("""
+        SELECT id, floor_area, num_residential_units, proposal
+        FROM applications
+        WHERE proposal IS NOT NULL
+          AND length(proposal) > 20
+          AND (
+            floor_area IS NOT NULL
+            OR num_residential_units IS NOT NULL
+            OR est_value_high IS NOT NULL
+          )
+        ORDER BY id
+    """))
+    rows = result.fetchall()
+    logger.info(f"Reconciling {len(rows)} records...")
+
+    fixed_area = 0
+    fixed_units = 0
+    cleared_values = 0
+
+    for i, row in enumerate(rows):
+        new_area = reconcile_floor_area(row.floor_area, row.proposal)
+        new_units = reconcile_units(row.num_residential_units, row.proposal)
+
+        area_changed = (new_area != row.floor_area)
+        units_changed = (new_units != row.num_residential_units)
+
+        if area_changed or units_changed:
+            # Clear value estimates so they get recalculated with corrected data
+            await db.execute(sql_text("""
+                UPDATE applications
+                SET floor_area = :area,
+                    num_residential_units = :units,
+                    est_value_low = NULL, est_value_high = NULL,
+                    est_value_basis = NULL, est_value_type = NULL,
+                    est_value_confidence = NULL, value_estimated_at = NULL
+                WHERE id = :id
+            """), {"area": new_area, "units": new_units, "id": row.id})
+
+            if area_changed:
+                fixed_area += 1
+            if units_changed:
+                fixed_units += 1
+            cleared_values += 1
+
+        if (i + 1) % 1000 == 0:
+            await db.commit()
+            logger.info(
+                f"Reconciled {i + 1}/{len(rows)} — "
+                f"fixed area: {fixed_area}, fixed units: {fixed_units}"
+            )
+
+    await db.commit()
+    logger.info(
+        f"Reconciliation complete. "
+        f"Fixed area: {fixed_area}, fixed units: {fixed_units}, "
+        f"cleared estimates: {cleared_values}"
+    )
 
 
 # ── Scraper Controls ────────────────────────────────────────────────────
