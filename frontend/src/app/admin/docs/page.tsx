@@ -87,16 +87,16 @@ export default function DocsPage() {
         </div>
       </nav>
 
-      <div style={{ maxWidth: '900px', margin: '0 auto', padding: '1.5rem 2rem 4rem' }}>
-        <Link href="/admin" className="inline-flex items-center gap-1 text-sm text-[var(--text-muted)] hover:text-[var(--teal)] mb-6 no-underline">
+      <div style={{ maxWidth: '900px', margin: '0 auto', padding: '2rem 2rem 4rem' }}>
+        <Link href="/admin" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem', fontSize: '0.875rem', color: 'var(--text-muted)', textDecoration: 'none', marginBottom: '1.5rem' }}>
           <ArrowLeft className="w-4 h-4" /> Back to Admin
         </Link>
 
-        <h1 className="text-2xl mb-6" style={{ fontFamily: "'Playfair Display', serif" }}>Document Scraping</h1>
+        <h1 style={{ fontSize: '1.5rem', fontWeight: '600', marginBottom: '1.5rem', fontFamily: "'Playfair Display', serif" }}>Document Scraping</h1>
 
         {/* Status cards */}
         {status && (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4" style={{ marginBottom: '1.25rem' }}>
             <div className="stat-card">
               <div className="stat-value text-2xl">{status.total_applications?.toLocaleString()}</div>
               <div className="stat-label">Total Applications</div>
@@ -121,7 +121,7 @@ export default function DocsPage() {
         )}
 
         {/* Controls */}
-        <div className="admin-card mb-6">
+        <div className="admin-card" style={{ marginBottom: '1.25rem', padding: '1.5rem' }}>
           <h3 className="text-base font-semibold mb-4">Scraper Controls</h3>
           <p className="text-sm text-[var(--text-secondary)] mb-4">
             Scrapes document metadata (names, types, download URLs) from both the Agile Applications portal (pre-2024) and the National Planning Portal (post-2024).

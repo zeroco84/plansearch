@@ -83,7 +83,7 @@ export default function BenchmarksPage() {
         </div>
       </nav>
 
-      <div style={{ maxWidth: '1000px', margin: '0 auto', padding: '1.5rem 2rem 4rem' }}>
+      <div style={{ maxWidth: '1000px', margin: '0 auto', padding: '2rem 2rem 4rem' }}>
         <Link href="/admin" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem', fontSize: '0.875rem', color: 'var(--text-muted)', textDecoration: 'none', marginBottom: '1.5rem' }}>
           <ArrowLeft style={{ width: '16px', height: '16px' }} /> Back to Admin
         </Link>

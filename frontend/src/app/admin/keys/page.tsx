@@ -64,25 +64,25 @@ export default function KeysPage() {
         </div>
       </nav>
 
-      <div style={{ maxWidth: '900px', margin: '0 auto', padding: '1.5rem 2rem 4rem' }}>
-        <Link href="/admin" className="inline-flex items-center gap-1 text-sm text-[var(--text-muted)] hover:text-[var(--teal)] mb-6 no-underline">
+      <div style={{ maxWidth: '900px', margin: '0 auto', padding: '2rem 2rem 4rem' }}>
+        <Link href="/admin" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem', fontSize: '0.875rem', color: 'var(--text-muted)', textDecoration: 'none', marginBottom: '1.5rem' }}>
           <ArrowLeft className="w-4 h-4" /> Back to Admin
         </Link>
 
-        <h1 className="text-2xl mb-2" style={{ fontFamily: "'Playfair Display', serif" }}>API Key Management</h1>
-        <p className="text-sm text-[var(--text-muted)] mb-6">
+        <h1 style={{ fontSize: '1.5rem', fontWeight: '600', marginBottom: '0.5rem', fontFamily: "'Playfair Display', serif" }}>API Key Management</h1>
+        <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', marginBottom: '1.25rem' }}>
           Keys are encrypted using Fernet (AES-128-CBC + HMAC) and stored in the database.
           The master encryption key is stored as a server environment variable only.
         </p>
 
         {message && (
-          <div className="bg-green-50 border border-green-200 rounded-lg p-3 mb-6 text-sm text-green-700 flex items-center gap-2">
+          <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-sm text-green-700 flex items-center gap-2" style={{ marginBottom: '1.25rem' }}>
             <CheckCircle className="w-4 h-4" /> {message}
           </div>
         )}
 
         {/* Claude API Key */}
-        <div className="admin-card mb-6">
+        <div className="admin-card" style={{ marginBottom: '1.25rem', padding: '1.5rem' }}>
           <div className="flex items-center gap-2 mb-4">
             <Key className="w-5 h-5 text-purple-500" />
             <h3 className="text-base font-semibold">Claude API Key</h3>

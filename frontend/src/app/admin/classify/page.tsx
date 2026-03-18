@@ -54,15 +54,15 @@ export default function ClassifyPage() {
         </div>
       </nav>
 
-      <div style={{ maxWidth: '900px', margin: '0 auto', padding: '1.5rem 2rem 4rem' }}>
-        <Link href="/admin" className="inline-flex items-center gap-1 text-sm text-[var(--text-muted)] hover:text-[var(--teal)] mb-6 no-underline">
+      <div style={{ maxWidth: '900px', margin: '0 auto', padding: '2rem 2rem 4rem' }}>
+        <Link href="/admin" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem', fontSize: '0.875rem', color: 'var(--text-muted)', textDecoration: 'none', marginBottom: '1.5rem' }}>
           <ArrowLeft className="w-4 h-4" /> Back to Admin
         </Link>
 
-        <h1 className="text-2xl mb-6" style={{ fontFamily: "'Playfair Display', serif" }}>AI Classification</h1>
+        <h1 style={{ fontSize: '1.5rem', fontWeight: '600', marginBottom: '1.5rem', fontFamily: "'Playfair Display', serif" }}>AI Classification</h1>
 
         {status && (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4" style={{ marginBottom: '1.25rem' }}>
             <div className="stat-card">
               <div className="stat-value text-2xl">{status.total_classified?.toLocaleString()}</div>
               <div className="stat-label">Classified</div>
@@ -85,7 +85,7 @@ export default function ClassifyPage() {
           </div>
         )}
 
-        <div className="admin-card mb-6">
+        <div className="admin-card" style={{ marginBottom: '1.25rem', padding: '1.5rem' }}>
           <h3 className="text-base font-semibold mb-4">Run Classification Batch</h3>
           <div className="flex flex-wrap items-end gap-4">
             <div>
