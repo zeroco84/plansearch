@@ -269,6 +269,21 @@ export default function AdminPage() {
             </div>
           </Link>
 
+          <Link href="/admin/scraper" className="admin-card hover:border-[var(--teal)] transition-colors no-underline">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-purple-50 rounded-lg flex items-center justify-center">
+                  <Users className="w-5 h-5 text-purple-500" />
+                </div>
+                <div>
+                  <h3 className="text-base font-semibold text-[var(--text-primary)]">Applicant Scraper</h3>
+                  <p className="text-xs text-[var(--text-muted)]">Continuous scraper — ePlanning + Agile portals</p>
+                </div>
+              </div>
+              <ChevronRight className="w-4 h-4 text-[var(--text-muted)]" />
+            </div>
+          </Link>
+
           <Link href="/admin/keys" className="admin-card hover:border-[var(--teal)] transition-colors no-underline">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">

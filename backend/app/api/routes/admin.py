@@ -650,6 +650,48 @@ async def _run_cro_background():
             _sse_events.append({"event": "cro_error", "data": json.dumps({"error": str(e)})})
 
 
+# ── Applicant Scraper ────────────────────────────────────────────────────
+
+_scraper_task = None
+
+@router.post("/admin/scrape/applicants/start")
+async def start_applicant_scraper(
+    _token: str = Depends(verify_admin_token),
+):
+    """Start the continuous applicant name scraper loop."""
+    global _scraper_task
+    from app.workers.applicant_scraper import (
+        run_applicant_scraper_loop,
+        scraper_progress as _sp,
+    )
+    if _sp["running"]:
+        return {"status": "already_running", "progress": _sp}
+    _scraper_task = asyncio.create_task(run_applicant_scraper_loop())
+    return {"status": "started"}
+
+
+@router.post("/admin/scrape/applicants/stop")
+async def stop_applicant_scraper(
+    _token: str = Depends(verify_admin_token),
+):
+    """Stop the applicant name scraper loop gracefully."""
+    global _scraper_task
+    from app.workers.applicant_scraper import scraper_progress as _sp
+    _sp["running"] = False
+    if _scraper_task:
+        _scraper_task.cancel()
+        _scraper_task = None
+    return {"status": "stopped"}
+
+
+@router.get("/admin/scrape/applicants/progress")
+async def get_applicant_scraper_progress(
+    _token: str = Depends(verify_admin_token),
+):
+    """Get live applicant scraper progress."""
+    from app.workers.applicant_scraper import scraper_progress as _sp
+    return _sp
+
 
 # ── SSE Stream ──────────────────────────────────────────────────────────
 

@@ -276,6 +276,26 @@ export async function stopCroEnrichment(token: string) {
   });
 }
 
+export async function startApplicantScraper(token: string) {
+  return fetchApi('/api/admin/scrape/applicants/start', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+export async function stopApplicantScraper(token: string) {
+  return fetchApi('/api/admin/scrape/applicants/stop', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+export async function fetchApplicantScraperProgress(token: string) {
+  return fetchApi('/api/admin/scrape/applicants/progress', {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
 export async function triggerBenchmarkScrape(token: string) {
   return fetchApi('/api/admin/benchmarks/scrape', {
     method: 'POST',
