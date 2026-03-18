@@ -185,7 +185,7 @@ export default function Home() {
         style={{ background: 'linear-gradient(160deg, #0d1117 0%, #111827 50%, #0f2027 100%)', padding: '3rem 1.5rem', minHeight: '70vh' }}
       >
         <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: '0.7rem', letterSpacing: '0.18em', textTransform: 'uppercase', marginBottom: '2rem', textAlign: 'center', width: '100%', padding: '0 1rem' }}>
-          650,000+ planning applications · 31 local authorities · AI-classified
+          300,000+ planning applications · 31 local authorities · AI-classified
         </p>
         <div style={{ width: '100%', maxWidth: 'min(680px, 90vw)' }}>
           <div className="relative">
