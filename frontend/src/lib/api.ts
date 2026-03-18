@@ -388,10 +388,15 @@ export function formatFileSize(bytes: number | null): string {
 }
 
 export function getPortalDocumentUrl(regRef: string, year: number | null): string {
+  // Strip council prefix if present (e.g. "DC/2024/12345" → "2024/12345")
+  const cleanRef = regRef.includes('/') && regRef.split('/')[0].length <= 3
+    ? regRef.substring(regRef.indexOf('/') + 1)
+    : regRef;
+
   if (year && year >= 2024) {
-    return `https://planning.localgov.ie/en/view-planning-applications?reference=${encodeURIComponent(regRef)}`;
+    return `https://planning.localgov.ie/en/view-planning-applications?reference=${encodeURIComponent(cleanRef)}`;
   }
-  return `https://planning.agileapplications.ie/dublincity/search-applications/?reg_ref=${encodeURIComponent(regRef)}`;
+  return `https://planning.agileapplications.ie/dublincity/search-applications/?reg_ref=${encodeURIComponent(cleanRef)}`;
 }
 
 // ── Phase 2: National constants ────────────────────────────────────────

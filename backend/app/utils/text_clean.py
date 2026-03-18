@@ -34,7 +34,10 @@ def normalise_reg_ref(reg_ref: str) -> str:
     - 2024/12345
     - FRL/2024/12345
     - WEB/2024/12345
+    - DC/2024/12345 (council prefix — preserved as-is)
     """
+    if not reg_ref:
+        return reg_ref
     return reg_ref.strip().upper()
 
 

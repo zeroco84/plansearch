@@ -570,6 +570,23 @@ async def get_benchmarks(
     }
 
 
+# ── Data Reset ──────────────────────────────────────────────────────────
+
+@router.post("/admin/sync/reset-applications")
+async def reset_applications(
+    _token: str = Depends(verify_admin_token),
+    db: AsyncSession = Depends(get_db),
+):
+    """Truncate applications table and reset for fresh sync.
+
+    Required after schema changes like the reg_ref council prefix migration
+    to avoid stale data with wrong keys.
+    """
+    await db.execute(text("TRUNCATE TABLE applications RESTART IDENTITY CASCADE"))
+    await db.commit()
+    return {"status": "reset", "message": "Applications table cleared. Run NPAD sync to reload."}
+
+
 # ── SSE Stream ──────────────────────────────────────────────────────────
 
 @router.get("/admin/stream")

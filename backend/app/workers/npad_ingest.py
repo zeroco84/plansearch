@@ -29,6 +29,57 @@ HEADERS = {
     "Accept": "application/json",
 }
 
+# ── Council code lookup for globally unique reg_refs ────────────────────
+
+AUTHORITY_CODES = {
+    "Carlow County Council": "CW",
+    "Cavan County Council": "CN",
+    "Clare County Council": "CE",
+    "Cork City Council": "CO",
+    "Cork County Council": "CC",
+    "Donegal County Council": "DL",
+    "Dublin City Council": "DC",
+    "Dún Laoghaire-Rathdown County Council": "DLR",
+    "Dun Laoghaire Rathdown County Council": "DLR",
+    "Fingal County Council": "FG",
+    "Galway City Council": "GY",
+    "Galway County Council": "GC",
+    "Kerry County Council": "KY",
+    "Kildare County Council": "KE",
+    "Kilkenny County Council": "KK",
+    "Laois County Council": "LS",
+    "Leitrim County Council": "LM",
+    "Limerick City & County Council": "LK",
+    "Limerick County Council": "LK",
+    "Longford County Council": "LD",
+    "Louth County Council": "LH",
+    "Mayo County Council": "MO",
+    "Meath County Council": "MH",
+    "Monaghan County Council": "MN",
+    "Offaly County Council": "OY",
+    "Roscommon County Council": "RN",
+    "Sligo County Council": "SO",
+    "South Dublin County Council": "SD",
+    "Tipperary County Council": "TA",
+    "Waterford City & County Council": "WD",
+    "Waterford City and County Council": "WD",
+    "Westmeath County Council": "WH",
+    "Wexford County Council": "WX",
+    "Wicklow County Council": "WW",
+}
+
+
+def make_global_ref(application_number: str, planning_authority: str) -> str:
+    """Create a globally unique ref by prefixing with council code.
+
+    Examples:
+    - ("2024/12345", "Dublin City Council")    → "DC/2024/12345"
+    - ("17217",      "Carlow County Council")  → "CW/17217"
+    - ("17217",      "Cork County Council")    → "CC/17217"
+    """
+    code = AUTHORITY_CODES.get(planning_authority, "XX")
+    return f"{code}/{application_number}"
+
 
 def safe_str(val) -> Optional[str]:
     if val is None or str(val).strip() in ("", "None", "nan", "null"):
@@ -65,10 +116,16 @@ async def fetch_npad_page(client: httpx.AsyncClient, offset: int) -> list:
 
 async def upsert_npad_record(db: AsyncSession, attrs: dict) -> bool:
     """Upsert a single NPAD record into the applications table."""
-    reg_ref = safe_str(attrs.get("ApplicationNumber"))
-    if not reg_ref:
+    application_number = safe_str(attrs.get("ApplicationNumber"))
+    planning_authority = safe_str(attrs.get("PlanningAuthority"))
+
+    if not application_number or not planning_authority:
         return False
-    reg_ref = normalise_reg_ref(reg_ref)
+
+    # Create globally unique ref: "DC/2024/12345", "CW/17217", etc.
+    reg_ref = make_global_ref(
+        normalise_reg_ref(application_number), planning_authority
+    )
 
     forename = safe_str(attrs.get("ApplicantForename"))
     surname = safe_str(attrs.get("ApplicantSurname"))

@@ -22,10 +22,15 @@ logger = logging.getLogger(__name__)
 
 def get_portal_url(reg_ref: str, year: int | None) -> str:
     """Construct the portal document URL for an application."""
+    # Strip council prefix if present (e.g. "DC/2024/12345" → "2024/12345")
+    clean_ref = reg_ref
+    if "/" in reg_ref and len(reg_ref.split("/")[0]) <= 3:
+        clean_ref = reg_ref[reg_ref.index("/") + 1:]
+
     if year and year >= 2024:
-        return f"https://planning.localgov.ie/en/view-planning-applications?reference={reg_ref}"
+        return f"https://planning.localgov.ie/en/view-planning-applications?reference={clean_ref}"
     else:
-        return f"https://planning.agileapplications.ie/dublincity/search-applications/?reg_ref={reg_ref}"
+        return f"https://planning.agileapplications.ie/dublincity/search-applications/?reg_ref={clean_ref}"
 
 
 @router.get("/applications/{reg_ref}", response_model=ApplicationDetail)

@@ -180,7 +180,7 @@ export default function SignificantPage() {
 
             <div className="card-body">
               <h3 className="card-title">
-                <Link href={`/application/${app.reg_ref}`}>
+                <Link href={`/application/${encodeURIComponent(app.reg_ref)}`}>
                   {app.proposal
                     ? app.proposal.substring(0, 120) + (app.proposal.length > 120 ? '...' : '')
                     : app.reg_ref}
