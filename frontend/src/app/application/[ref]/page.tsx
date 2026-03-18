@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 import {
   getApplication, ApplicationDetail,
-  CATEGORY_LABELS, formatDate, formatFileSize, getPortalDocumentUrl,
+  CATEGORY_LABELS, formatDate, formatFileSize, formatValue, getPortalDocumentUrl,
 } from '@/lib/api';
 
 
@@ -395,6 +395,41 @@ export default function ApplicationPage() {
                   <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Floor Area</div>
                 </div>
               )}
+            </div>
+          </div>
+        )}
+
+        {/* Estimated Construction Value */}
+        {app.est_value_high && (
+          <div className="detail-section fade-in" style={{ animationDelay: '165ms' }}>
+            <h3>ESTIMATED CONSTRUCTION VALUE</h3>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem', margin: '0.75rem 0' }}>
+              <span style={{ fontSize: '1.75rem', fontWeight: '700', color: '#059669' }}>
+                {formatValue(app.est_value_low)}
+              </span>
+              <span style={{ color: 'var(--text-secondary)', fontSize: '1rem' }}>—</span>
+              <span style={{ fontSize: '1.75rem', fontWeight: '700', color: '#059669' }}>
+                {formatValue(app.est_value_high)}
+              </span>
+            </div>
+            {app.est_value_basis && (
+              <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>
+                {app.est_value_basis}
+              </div>
+            )}
+            <div style={{ fontSize: '0.72rem', color: 'var(--text-tertiary)', lineHeight: 1.5 }}>
+              Construction cost estimate based on{' '}
+              <a
+                href="https://mitchellmcdermott.com/infocards/"
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ color: 'var(--teal)' }}
+              >
+                Mitchell McDermott
+              </a>
+              {' '}benchmarks{app.est_value_type ? ` (${app.est_value_type})` : ''}.
+              Construction cost only — excludes VAT, site acquisition, professional fees,
+              development contributions and finance costs.
             </div>
           </div>
         )}

@@ -254,6 +254,38 @@ export default function AdminPage() {
             </div>
           </Link>
 
+          <div className="admin-card">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-emerald-50 rounded-lg flex items-center justify-center">
+                  <TrendingUp className="w-5 h-5 text-emerald-500" />
+                </div>
+                <div>
+                  <h3 className="text-base font-semibold text-[var(--text-primary)]">Value Estimation</h3>
+                  <p className="text-xs text-[var(--text-muted)]">Mitchell McDermott benchmark-based construction costs</p>
+                </div>
+              </div>
+              <button
+                className="px-3 py-1.5 text-xs font-medium rounded-md text-white"
+                style={{ background: 'var(--teal)' }}
+                onClick={async () => {
+                  try {
+                    const saved = localStorage.getItem('plansearch_admin_token');
+                    await fetch('/api/admin/estimate-values', {
+                      method: 'POST',
+                      headers: { Authorization: `Bearer ${saved}` },
+                    });
+                    alert('Value estimation triggered — running in background');
+                  } catch {
+                    alert('Failed to trigger value estimation');
+                  }
+                }}
+              >
+                Run
+              </button>
+            </div>
+          </div>
+
           <Link href="/admin/cro" className="admin-card hover:border-[var(--teal)] transition-colors no-underline">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">

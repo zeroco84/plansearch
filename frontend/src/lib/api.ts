@@ -105,6 +105,11 @@ export interface ApplicationDetail {
   lat: number | null;
   lng: number | null;
   portal_url: string | null;
+  est_value_low: number | null;
+  est_value_high: number | null;
+  est_value_basis: string | null;
+  est_value_type: string | null;
+  est_value_confidence: string | null;
   appeals: AppealDetail[];
   further_info: FurtherInfoDetail[];
   company: CompanyDetail | null;

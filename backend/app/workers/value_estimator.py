@@ -275,3 +275,188 @@ async def run_significance_scoring(db: AsyncSession, limit: int = 0) -> dict:
     await db.commit()
     logger.info(f"Significance scoring: {stats['scored']} updated")
     return stats
+
+
+# ── Benchmark-Based Value Estimation ─────────────────────────────────────
+# No Claude API calls needed — pure DB lookup from cost_benchmarks table.
+
+CATEGORY_TO_BENCHMARK = {
+    "residential_new_build": "apartments_overall_range",
+    "residential_extension": "housing_suburban",
+    "residential_conversion": "housing_suburban",
+    "hotel_accommodation": "hotel_3_4_star",
+    "commercial_office": "offices_shell_and_core",
+    "commercial_retail": "retail_fitout",
+    "industrial_warehouse": "industrial_warehouse_shell",
+    "mixed_use": "apartments_overall_range",
+    "student_accommodation": "student_accommodation",
+    "change_of_use": "offices_fitout_medium",
+}
+
+
+async def _get_benchmark(db: AsyncSession, building_type: str) -> Optional[dict]:
+    """Fetch the latest benchmark for a building type."""
+    from sqlalchemy import text as sql_text
+    result = await db.execute(
+        sql_text("""
+            SELECT cost_per_sqm_low, cost_per_sqm_high,
+                   cost_per_unit_low, cost_per_unit_high,
+                   cost_basis, exclusions, infocard_name, valid_from
+            FROM cost_benchmarks
+            WHERE building_type = :bt
+            ORDER BY valid_from DESC
+            LIMIT 1
+        """),
+        {"bt": building_type},
+    )
+    row = result.fetchone()
+    return dict(row._mapping) if row else None
+
+
+def _calc_estimate(
+    benchmark: dict,
+    floor_area: Optional[float],
+    num_units: Optional[int],
+) -> Optional[dict]:
+    """Calculate value estimate from benchmark and application data."""
+    low = high = None
+    basis = None
+
+    # Unit-based calculation (apartments, hotel keys)
+    if (
+        num_units and num_units > 0
+        and benchmark.get("cost_per_unit_low")
+        and benchmark.get("cost_per_unit_high")
+    ):
+        low = num_units * benchmark["cost_per_unit_low"]
+        high = num_units * benchmark["cost_per_unit_high"]
+        basis = (
+            f"{num_units} units × "
+            f"€{benchmark['cost_per_unit_low']:,}–"
+            f"€{benchmark['cost_per_unit_high']:,}/unit"
+        )
+
+    # Floor area based calculation
+    elif (
+        floor_area and floor_area > 0
+        and benchmark.get("cost_per_sqm_low")
+        and benchmark.get("cost_per_sqm_high")
+    ):
+        low = floor_area * benchmark["cost_per_sqm_low"]
+        high = floor_area * benchmark["cost_per_sqm_high"]
+        basis = (
+            f"{floor_area:,.0f}m² × "
+            f"€{benchmark['cost_per_sqm_low']:,}–"
+            f"€{benchmark['cost_per_sqm_high']:,}/m²"
+        )
+
+    if not low or not high:
+        return None
+
+    # Sanity check — ignore implausibly small values
+    if high < 10_000:
+        return None
+
+    return {
+        "est_value_low": int(low),
+        "est_value_high": int(high),
+        "est_value_basis": basis,
+        "est_value_confidence": "medium",
+        "est_value_type": benchmark.get(
+            "infocard_name", "Mitchell McDermott 2026"
+        ),
+    }
+
+
+async def run_benchmark_estimation(
+    db: AsyncSession, limit: Optional[int] = None
+) -> dict:
+    """Run benchmark-based value estimation for classified applications.
+
+    Uses the cost_benchmarks table (Mitchell McDermott InfoCards) — no AI needed.
+    """
+    from sqlalchemy import text as sql_text
+
+    logger.info("Starting benchmark value estimation...")
+    stats = {"processed": 0, "estimated": 0, "no_data": 0, "errors": 0}
+
+    result = await db.execute(
+        sql_text("""
+            SELECT id, reg_ref, dev_category, floor_area,
+                   num_residential_units
+            FROM applications
+            WHERE dev_category IS NOT NULL
+              AND est_value_high IS NULL
+              AND (
+                (floor_area IS NOT NULL AND floor_area > 0)
+                OR (num_residential_units IS NOT NULL
+                    AND num_residential_units > 0)
+              )
+            ORDER BY apn_date DESC NULLS LAST
+            LIMIT :limit
+        """),
+        {"limit": limit or 999999},
+    )
+    rows = result.fetchall()
+
+    logger.info(f"Found {len(rows)} applications to estimate")
+
+    # Pre-load all benchmarks to avoid repeated DB queries
+    benchmarks: dict = {}
+    for category, building_type in CATEGORY_TO_BENCHMARK.items():
+        benchmark = await _get_benchmark(db, building_type)
+        if benchmark:
+            benchmarks[category] = benchmark
+
+    for row in rows:
+        try:
+            benchmark = benchmarks.get(row.dev_category)
+            if not benchmark:
+                stats["no_data"] += 1
+                stats["processed"] += 1
+                continue
+
+            est = _calc_estimate(
+                benchmark,
+                row.floor_area,
+                row.num_residential_units,
+            )
+
+            if est:
+                await db.execute(
+                    sql_text("""
+                        UPDATE applications
+                        SET est_value_low = :low,
+                            est_value_high = :high,
+                            est_value_basis = :basis,
+                            est_value_confidence = :confidence,
+                            est_value_type = :est_type,
+                            value_estimated_at = NOW()
+                        WHERE id = :id
+                    """),
+                    {
+                        "low": est["est_value_low"],
+                        "high": est["est_value_high"],
+                        "basis": est["est_value_basis"],
+                        "confidence": est["est_value_confidence"],
+                        "est_type": est["est_value_type"],
+                        "id": row.id,
+                    },
+                )
+                stats["estimated"] += 1
+            else:
+                stats["no_data"] += 1
+
+            stats["processed"] += 1
+            if stats["processed"] % 1000 == 0:
+                await db.commit()
+                logger.info(f"Benchmark estimation progress: {stats}")
+
+        except Exception as e:
+            logger.error(f"Error estimating value for {row.reg_ref}: {e}")
+            stats["errors"] += 1
+
+    await db.commit()
+    logger.info(f"Benchmark estimation complete: {stats}")
+    return stats
+

@@ -650,6 +650,42 @@ async def _run_cro_background():
             _sse_events.append({"event": "cro_error", "data": json.dumps({"error": str(e)})})
 
 
+# ── Value Estimation ─────────────────────────────────────────────────────
+
+@router.post("/admin/estimate-values")
+async def trigger_value_estimation(
+    _token: str = Depends(verify_admin_token),
+    db: AsyncSession = Depends(get_db),
+):
+    """Trigger benchmark-based value estimation for classified applications."""
+    from app.workers.value_estimator import run_benchmark_estimation
+
+    async def _run():
+        async with async_session_factory() as session:
+            await run_benchmark_estimation(session)
+
+    asyncio.create_task(_run())
+    return {"status": "triggered"}
+
+
+@router.get("/admin/estimate-values/stats")
+async def get_estimation_stats(
+    _token: str = Depends(verify_admin_token),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get stats on how many applications have been value-estimated."""
+    result = await db.execute(text("""
+        SELECT
+            COUNT(*) FILTER (WHERE dev_category IS NOT NULL) as total_classified,
+            COUNT(*) FILTER (WHERE est_value_high IS NOT NULL) as has_estimate,
+            AVG(est_value_high) FILTER (WHERE est_value_high IS NOT NULL) as avg_high,
+            MAX(est_value_high) as max_high
+        FROM applications
+    """))
+    row = result.fetchone()
+    return dict(row._mapping)
+
+
 # ── Applicant Scraper ────────────────────────────────────────────────────
 
 _scraper_task = None
