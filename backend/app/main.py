@@ -28,9 +28,14 @@ settings = get_settings()
 async def lifespan(app: FastAPI):
     """Application lifespan handler — creates missing tables on startup."""
     async with engine.begin() as conn:
+        await conn.execute(text("CREATE EXTENSION IF NOT EXISTS postgis"))
+        await conn.execute(text("CREATE EXTENSION IF NOT EXISTS pg_trgm"))
+        await conn.execute(text("CREATE EXTENSION IF NOT EXISTS unaccent"))
+
         await conn.run_sync(Base.metadata.create_all)
 
         # Create/update search_vector trigger so it stays in sync automatically
+        # Each statement is a separate execute call — required by asyncpg
         await conn.execute(text("""
             CREATE OR REPLACE FUNCTION update_search_vector()
             RETURNS trigger AS $$
@@ -43,13 +48,17 @@ async def lifespan(app: FastAPI):
                 );
                 RETURN NEW;
             END;
-            $$ LANGUAGE plpgsql;
+            $$ LANGUAGE plpgsql
+        """))
 
-            DROP TRIGGER IF EXISTS applications_search_vector_trigger ON applications;
+        await conn.execute(text(
+            "DROP TRIGGER IF EXISTS applications_search_vector_trigger ON applications"
+        ))
 
+        await conn.execute(text("""
             CREATE TRIGGER applications_search_vector_trigger
                 BEFORE INSERT OR UPDATE ON applications
-                FOR EACH ROW EXECUTE FUNCTION update_search_vector();
+                FOR EACH ROW EXECUTE FUNCTION update_search_vector()
         """))
 
     logger.info(f"PlanSearch API v{settings.app_version} starting...")
