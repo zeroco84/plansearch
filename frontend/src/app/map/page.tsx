@@ -168,8 +168,14 @@ export default function MapPage() {
 
     (async () => {
       // Load Leaflet
-      const L = await import('leaflet');
+      const leafletModule = await import('leaflet');
+      // Dynamic import returns module — get default export
+      const L = leafletModule.default || leafletModule;
       await import('leaflet/dist/leaflet.css');
+
+      // CRITICAL: leaflet.markercluster expects `L` on the global scope
+      // It references `L.FeatureGroup.extend(...)` directly
+      (window as any).L = L;
 
       // Load MarkerCluster CSS via link tags (avoids TS module resolution issues)
       const mcCss1 = document.createElement('link');
@@ -181,7 +187,7 @@ export default function MapPage() {
       mcCss2.href = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.Default.css';
       document.head.appendChild(mcCss2);
 
-      // Load MarkerCluster JS
+      // Load MarkerCluster JS — must come AFTER window.L is set
       await import('leaflet.markercluster');
 
       if (cancelled) return;
