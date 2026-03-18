@@ -254,8 +254,7 @@ export default function AdminPage() {
             </div>
           </Link>
 
-          {/* CRO Enrichment — inline action card */}
-          <div className="admin-card">
+          <Link href="/admin/cro" className="admin-card hover:border-[var(--teal)] transition-colors no-underline">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-blue-50 rounded-lg flex items-center justify-center">
@@ -266,26 +265,9 @@ export default function AdminPage() {
                   <p className="text-xs text-[var(--text-muted)]">Company details from CRO (directors, status, registration)</p>
                 </div>
               </div>
-              <button
-                className="px-3 py-1.5 text-xs font-medium rounded-md text-white"
-                style={{ background: 'var(--teal)' }}
-                onClick={async () => {
-                  try {
-                    const saved = localStorage.getItem('plansearch_admin_token');
-                    await fetch('/api/admin/enrich/cro', {
-                      method: 'POST',
-                      headers: { Authorization: `Bearer ${saved}` },
-                    });
-                    alert('CRO enrichment triggered — running in background');
-                  } catch {
-                    alert('Failed to trigger CRO enrichment');
-                  }
-                }}
-              >
-                Run
-              </button>
+              <ChevronRight className="w-4 h-4 text-[var(--text-muted)]" />
             </div>
-          </div>
+          </Link>
 
           <Link href="/admin/keys" className="admin-card hover:border-[var(--teal)] transition-colors no-underline">
             <div className="flex items-center justify-between">

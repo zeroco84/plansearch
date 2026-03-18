@@ -68,13 +68,23 @@ async def lookup_company(name: str, api_key: str) -> Optional[dict]:
     return None
 
 
-async def run_cro_enrichment(db: AsyncSession, limit: int = 500) -> dict:
-    """Enrich applicant data with CRO company information."""
+async def run_cro_enrichment(
+    db: AsyncSession,
+    progress: Optional[dict] = None,
+    limit: int = 500,
+) -> dict:
+    """Enrich applicant data with CRO company information.
+
+    Accepts an optional progress dict (same shape as sync_progress) that
+    the admin API polls every 3 seconds to show live counts in the UI.
+    """
     logger.info("Starting CRO enrichment...")
     stats = {"processed": 0, "enriched": 0, "not_found": 0, "errors": 0}
 
     api_key = await get_cro_api_key(db)
     if not api_key:
+        if progress:
+            progress["running"] = False
         return {"error": "CRO API key not configured. Set it via the admin UI."}
 
     result = await db.execute(
@@ -91,11 +101,22 @@ async def run_cro_enrichment(db: AsyncSession, limit: int = 500) -> dict:
     )
     rows = result.fetchall()
 
-    logger.info(f"Found {len(rows)} applications to enrich")
+    total = len(rows)
+    logger.info(f"Found {total} applications to enrich")
+
+    if progress:
+        progress["total"] = total
 
     for row in rows:
+        # Check for stop signal
+        if progress and progress.get("stop_requested"):
+            logger.info("CRO enrichment stop requested")
+            break
+
         if not looks_like_company(row.applicant_name):
             stats["processed"] += 1
+            if progress:
+                progress["processed"] = stats["processed"]
             # Mark as checked so we don't retry individuals
             await db.execute(
                 text("UPDATE applications SET cro_enriched_at = NOW() WHERE id = :id"),
@@ -127,6 +148,10 @@ async def run_cro_enrichment(db: AsyncSession, limit: int = 500) -> dict:
                 stats["not_found"] += 1
 
             stats["processed"] += 1
+            if progress:
+                progress["processed"] = stats["processed"]
+                progress["errors"] = stats["errors"]
+
             if stats["processed"] % 50 == 0:
                 await db.commit()
                 logger.info(f"CRO enrichment progress: {stats}")
@@ -134,7 +159,15 @@ async def run_cro_enrichment(db: AsyncSession, limit: int = 500) -> dict:
         except Exception as e:
             logger.error(f"CRO error for {row.reg_ref}: {e}")
             stats["errors"] += 1
+            if progress:
+                progress["errors"] = stats["errors"]
 
     await db.commit()
+
+    if progress:
+        progress["running"] = False
+        progress["stop_requested"] = False
+
     logger.info(f"CRO enrichment complete: {stats}")
     return stats
+

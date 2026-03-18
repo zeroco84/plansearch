@@ -41,6 +41,17 @@ sync_progress = {
     "stop_requested": False,
 }
 
+# In-memory CRO enrichment progress — same pattern as sync_progress
+cro_progress = {
+    "running": False,
+    "processed": 0,
+    "total": 0,
+    "errors": 0,
+    "started_at": None,
+    "source": "cro",
+    "stop_requested": False,
+}
+
 
 def verify_admin_token(authorization: str = Header(...)):
     """Verify the admin bearer token."""
@@ -591,14 +602,53 @@ async def reset_applications(
 
 @router.post("/admin/enrich/cro")
 async def trigger_cro_enrichment(
-    background_tasks: BackgroundTasks,
     _token: str = Depends(verify_admin_token),
-    db: AsyncSession = Depends(get_db),
 ):
-    """Trigger CRO company enrichment for applications with company-like names."""
-    from app.workers.cro_enricher import run_cro_enrichment
-    background_tasks.add_task(run_cro_enrichment, db)
+    """Trigger CRO company enrichment as a background task with live progress."""
+    if cro_progress["running"]:
+        raise HTTPException(status_code=409, detail="CRO enrichment already running")
+
+    cro_progress.update({
+        "running": True, "processed": 0, "total": 0, "errors": 0,
+        "started_at": datetime.utcnow().isoformat(), "source": "cro",
+        "stop_requested": False,
+    })
+
+    asyncio.create_task(_run_cro_background())
     return {"status": "triggered", "source": "cro"}
+
+
+@router.get("/admin/enrich/cro/progress")
+async def get_cro_progress(
+    _token: str = Depends(verify_admin_token),
+):
+    """Get live CRO enrichment progress — polled by the frontend every 3 seconds."""
+    return cro_progress
+
+
+@router.post("/admin/enrich/cro/stop")
+async def stop_cro_enrichment(
+    _token: str = Depends(verify_admin_token),
+):
+    """Request a running CRO enrichment to stop gracefully."""
+    if not cro_progress["running"]:
+        return {"status": "not_running"}
+    cro_progress["stop_requested"] = True
+    return {"status": "stop_requested"}
+
+
+async def _run_cro_background():
+    """Run CRO enrichment in background, updating cro_progress in real-time."""
+    from app.workers.cro_enricher import run_cro_enrichment
+
+    async with async_session_factory() as db:
+        try:
+            stats = await run_cro_enrichment(db, progress=cro_progress)
+            _sse_events.append({"event": "cro_complete", "data": json.dumps(stats)})
+        except Exception as e:
+            cro_progress["running"] = False
+            _sse_events.append({"event": "cro_error", "data": json.dumps({"error": str(e)})})
+
 
 
 # ── SSE Stream ──────────────────────────────────────────────────────────

@@ -256,6 +256,26 @@ export async function stopSync(token: string) {
   });
 }
 
+export async function triggerCroEnrichment(token: string) {
+  return fetchApi('/api/admin/enrich/cro', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+export async function fetchCroProgress(token: string) {
+  return fetchApi('/api/admin/enrich/cro/progress', {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+export async function stopCroEnrichment(token: string) {
+  return fetchApi('/api/admin/enrich/cro/stop', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
 export async function triggerBenchmarkScrape(token: string) {
   return fetchApi('/api/admin/benchmarks/scrape', {
     method: 'POST',
