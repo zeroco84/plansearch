@@ -61,7 +61,7 @@ export default function InsightsPage() {
         subtitle: p.summary_one_line || undefined,
         excerpt: p.excerpt || undefined,
         summary_one_line: p.summary_one_line || undefined,
-        published_at: p.published_at,
+        published_at: p.published_at || '',
         substack_url: p.substack_url,
         featured_image_url: p.featured_image_url || null,
       }));
