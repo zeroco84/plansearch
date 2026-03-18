@@ -33,7 +33,7 @@ def get_portal_url(reg_ref: str, year: int | None) -> str:
         return f"https://planning.agileapplications.ie/dublincity/search-applications/?reg_ref={clean_ref}"
 
 
-@router.get("/applications/{reg_ref}", response_model=ApplicationDetail)
+@router.get("/applications/{reg_ref:path}", response_model=ApplicationDetail)
 async def get_application(
     reg_ref: str,
     db: AsyncSession = Depends(get_db),
