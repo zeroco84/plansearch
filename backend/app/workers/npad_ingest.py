@@ -211,6 +211,21 @@ async def run_npad_ingest(
         sync_log.records_processed = stats["processed"]
         await db.commit()
 
+        # Populate search vectors for any records where it is NULL
+        logger.info("Populating search vectors...")
+        await db.execute(text("""
+            UPDATE applications
+            SET search_vector = to_tsvector('english',
+                COALESCE(proposal, '') || ' ' ||
+                COALESCE(location, '') || ' ' ||
+                COALESCE(applicant_name, '') || ' ' ||
+                COALESCE(planning_authority, '')
+            )
+            WHERE search_vector IS NULL
+        """))
+        await db.commit()
+        logger.info("Search vectors populated")
+
         logger.info(f"NPAD ingest complete: {stats}")
         return stats
 
@@ -285,6 +300,21 @@ async def run_npad_ingest_with_progress(
                     break
                 if limit and progress["processed"] >= limit:
                     break
+
+        # Populate search vectors for any records where it is NULL
+        logger.info("Populating search vectors...")
+        await db.execute(text("""
+            UPDATE applications
+            SET search_vector = to_tsvector('english',
+                COALESCE(proposal, '') || ' ' ||
+                COALESCE(location, '') || ' ' ||
+                COALESCE(applicant_name, '') || ' ' ||
+                COALESCE(planning_authority, '')
+            )
+            WHERE search_vector IS NULL
+        """))
+        await db.commit()
+        logger.info("Search vectors populated")
 
         progress["running"] = False
         progress["stop_requested"] = False

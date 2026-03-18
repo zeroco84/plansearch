@@ -8,6 +8,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import text
 
 from app.config import get_settings
 from app.database import engine, Base
@@ -28,6 +29,29 @@ async def lifespan(app: FastAPI):
     """Application lifespan handler — creates missing tables on startup."""
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+
+        # Create/update search_vector trigger so it stays in sync automatically
+        await conn.execute(text("""
+            CREATE OR REPLACE FUNCTION update_search_vector()
+            RETURNS trigger AS $$
+            BEGIN
+                NEW.search_vector := to_tsvector('english',
+                    COALESCE(NEW.proposal, '') || ' ' ||
+                    COALESCE(NEW.location, '') || ' ' ||
+                    COALESCE(NEW.applicant_name, '') || ' ' ||
+                    COALESCE(NEW.planning_authority, '')
+                );
+                RETURN NEW;
+            END;
+            $$ LANGUAGE plpgsql;
+
+            DROP TRIGGER IF EXISTS applications_search_vector_trigger ON applications;
+
+            CREATE TRIGGER applications_search_vector_trigger
+                BEFORE INSERT OR UPDATE ON applications
+                FOR EACH ROW EXECUTE FUNCTION update_search_vector();
+        """))
+
     logger.info(f"PlanSearch API v{settings.app_version} starting...")
     yield
     logger.info("PlanSearch API shutting down...")
