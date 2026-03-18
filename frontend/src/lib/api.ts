@@ -22,6 +22,7 @@ export interface ApplicationSummary {
   // Phase 2 national fields
   planning_authority: string | null;
   lifecycle_stage: string | null;
+  est_value_low: number | null;
   est_value_high: number | null;
   significance_score: number | null;
   num_residential_units: number | null;

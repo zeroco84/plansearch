@@ -294,6 +294,7 @@ async def search_applications(
                 relevance_score=float(relevance) if relevance else None,
                 planning_authority=app.planning_authority,
                 lifecycle_stage=app.lifecycle_stage,
+                est_value_low=app.est_value_low,
                 est_value_high=app.est_value_high,
                 significance_score=app.significance_score,
                 num_residential_units=app.num_residential_units,

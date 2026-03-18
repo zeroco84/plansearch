@@ -62,6 +62,7 @@ class ApplicationSummary(BaseModel):
     # Phase 2 national fields
     planning_authority: Optional[str] = None
     lifecycle_stage: Optional[str] = None
+    est_value_low: Optional[int] = None
     est_value_high: Optional[int] = None
     significance_score: Optional[int] = None
     num_residential_units: Optional[int] = None

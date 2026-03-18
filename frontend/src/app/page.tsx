@@ -420,16 +420,21 @@ export default function Home() {
                           </span>
                         )}
                         {app.est_value_high && (
-                          <a
-                            href="https://mitchellmcdermott.com/infocards/"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            title="Construction cost estimate based on Mitchell McDermott InfoCard benchmarks. Excludes VAT, site, fees and finance."
-                            onClick={e => e.stopPropagation()}
-                            style={{ fontSize: '0.7rem', fontWeight: '600', color: '#059669', textDecoration: 'none' }}
+                          <span
+                            title={`Estimated construction cost: ${formatValue(app.est_value_low)}–${formatValue(app.est_value_high)}. Based on Mitchell McDermott benchmarks. Construction cost only — excludes VAT, site, fees and finance.`}
+                            style={{
+                              fontSize: '0.72rem',
+                              fontWeight: '600',
+                              color: '#1d9e75',
+                              background: 'rgba(29, 158, 117, 0.08)',
+                              border: '1px solid rgba(29, 158, 117, 0.2)',
+                              borderRadius: '4px',
+                              padding: '2px 7px',
+                              cursor: 'help',
+                            }}
                           >
-                            {formatValue(app.est_value_high)}
-                          </a>
+                            {app.est_value_low ? `${formatValue(app.est_value_low)}–` : ''}{formatValue(app.est_value_high)}
+                          </span>
                         )}
                         {app.num_residential_units && app.num_residential_units > 0 && (
                           <span className="text-xs text-[var(--text-muted)]">
