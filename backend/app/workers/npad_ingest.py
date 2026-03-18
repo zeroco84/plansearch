@@ -99,6 +99,25 @@ def safe_date(val):
     return None
 
 
+def _safe_area_ha(val) -> Optional[float]:
+    """Convert NPAD AreaofSite to hectares.
+
+    NPAD stores area in m² for most records. Values > 100 are almost
+    certainly m² and need dividing by 10,000. Values ≤ 100 are likely
+    already in hectares.
+    """
+    if val is None:
+        return None
+    try:
+        area = float(val)
+        if area <= 0:
+            return None
+        # Convert m² → ha when value is clearly in m²
+        return area / 10_000 if area > 100 else area
+    except (ValueError, TypeError):
+        return None
+
+
 async def fetch_npad_page(client: httpx.AsyncClient, offset: int) -> list:
     """Fetch one page of NPAD records."""
     params = {
@@ -160,7 +179,7 @@ async def upsert_npad_record(db: AsyncSession, attrs: dict) -> bool:
         "land_use_code":        safe_str(attrs.get("LandUseCode")),
         "floor_area":           float(attrs["FloorArea"]) if attrs.get("FloorArea") else None,
         "num_residential_units": int(attrs["NumResidentialUnits"]) if attrs.get("NumResidentialUnits") else None,
-        "area_of_site":         float(attrs["AreaofSite"]) if attrs.get("AreaofSite") else None,
+        "area_of_site":         _safe_area_ha(attrs.get("AreaofSite")),
         "one_off_house":        safe_str(attrs.get("OneOffHouse")) == "Y",
         "link_app_details":     safe_str(attrs.get("LinkAppDetails")),
         "appeal_ref_number":    safe_str(attrs.get("AppealRefNumber")),
