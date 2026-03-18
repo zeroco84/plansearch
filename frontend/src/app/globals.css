@@ -494,3 +494,28 @@ h1, h2, h3, h4, h5, h6 {
 ::-webkit-scrollbar-thumb:hover {
   background: var(--text-muted);
 }
+
+/* ── Map Marker Clusters ───────────────────────────────── */
+
+.marker-cluster {
+  background: rgba(29, 158, 117, 0.15);
+  border: 2px solid rgba(29, 158, 117, 0.5);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.marker-cluster div {
+  text-align: center;
+  font-weight: 700;
+  color: #0a8a63;
+  font-family: 'Inter', -apple-system, sans-serif;
+}
+.cluster-small { width: 32px; height: 32px; line-height: 32px; font-size: 12px; }
+.cluster-medium { width: 40px; height: 40px; line-height: 40px; font-size: 13px; }
+.cluster-large { width: 50px; height: 50px; line-height: 50px; font-size: 14px; }
+
+.cluster-small div { font-size: 11px; }
+.cluster-medium div { font-size: 12px; }
+.cluster-large div { font-size: 13px; font-weight: 800; }
+
