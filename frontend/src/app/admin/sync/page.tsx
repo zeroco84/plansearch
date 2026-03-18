@@ -6,7 +6,7 @@ import {
   Database, ArrowLeft, RefreshCw, Play, CheckCircle, XCircle, Square,
   Settings, Search, TrendingUp, BookOpen, Map as MapIcon, Building2,
 } from 'lucide-react';
-import { triggerNpadSync, triggerBcmsSync, fetchSyncProgress, stopSync, getSyncStatus, getAdminLogs } from '@/lib/api';
+import { triggerNpadSync, triggerBcmsSync, triggerSubstackSync, fetchSyncProgress, stopSync, getSyncStatus, getAdminLogs } from '@/lib/api';
 
 interface SyncProgress {
   running: boolean;
@@ -119,10 +119,7 @@ export default function SyncPage() {
     setTriggeringSubstack(true);
     setMessage('');
     try {
-      await fetch('/api/admin/sync/substack', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      await triggerSubstackSync(token);
       setMessage('Substack sync triggered — posts loading in background');
     } catch {
       setMessage('Failed to trigger Substack sync');

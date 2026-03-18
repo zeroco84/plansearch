@@ -248,6 +248,20 @@ export async function triggerBcmsSync(token: string) {
   });
 }
 
+export async function triggerSubstackSync(token: string) {
+  return fetchApi('/api/admin/sync/substack', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+export async function triggerValueEstimation(token: string) {
+  return fetchApi('/api/admin/estimate-values', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
 export async function fetchSyncProgress(token: string) {
   return fetchApi('/api/admin/sync/progress', {
     headers: { Authorization: `Bearer ${token}` },

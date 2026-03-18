@@ -7,7 +7,7 @@ import {
   BarChart3, Users, Building2, Zap, Clock, Shield,
   ChevronRight, Map as MapIcon, TrendingUp, BookOpen, Search, LogOut
 } from 'lucide-react';
-import { getStats, StatsResponse, CATEGORY_LABELS } from '@/lib/api';
+import { getStats, StatsResponse, CATEGORY_LABELS, triggerValueEstimation } from '@/lib/api';
 
 export default function AdminPage() {
   const [token, setToken] = useState('');
@@ -271,11 +271,8 @@ export default function AdminPage() {
                 onClick={async () => {
                   try {
                     const saved = localStorage.getItem('plansearch_admin_token');
-                    await fetch('/api/admin/estimate-values', {
-                      method: 'POST',
-                      headers: { Authorization: `Bearer ${saved}` },
-                    });
-                    alert('Value estimation triggered — running in background');
+                    if (saved) await triggerValueEstimation(saved);
+                    alert('Value estimation triggered \u2014 running in background');
                   } catch {
                     alert('Failed to trigger value estimation');
                   }
