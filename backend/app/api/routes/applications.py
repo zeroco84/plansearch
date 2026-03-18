@@ -124,9 +124,18 @@ async def get_application(
         classification_confidence=app.classification_confidence,
         applicant_name=app.applicant_name,
         cro_number=app.cro_number,
+        planning_authority=app.planning_authority,
+        area_of_site=app.area_of_site,
+        num_residential_units=app.num_residential_units,
+        floor_area=app.floor_area,
         lat=lat_val,
         lng=lng_val,
         portal_url=get_portal_url(app.reg_ref, app.year),
+        est_value_low=app.est_value_low,
+        est_value_high=app.est_value_high,
+        est_value_basis=app.est_value_basis,
+        est_value_type=app.est_value_type,
+        est_value_confidence=app.est_value_confidence,
         appeals=[
             AppealDetail(
                 id=a.id,

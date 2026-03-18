@@ -162,9 +162,20 @@ class ApplicationDetail(BaseModel):
     classification_confidence: Optional[float] = None
     applicant_name: Optional[str] = None
     cro_number: Optional[str] = None
+    planning_authority: Optional[str] = None
+    area_of_site: Optional[float] = None
+    num_residential_units: Optional[int] = None
+    floor_area: Optional[float] = None
     lat: Optional[float] = None
     lng: Optional[float] = None
     portal_url: Optional[str] = None
+
+    # Value estimation
+    est_value_low: Optional[int] = None
+    est_value_high: Optional[int] = None
+    est_value_basis: Optional[str] = None
+    est_value_type: Optional[str] = None
+    est_value_confidence: Optional[str] = None
 
     appeals: List[AppealDetail] = []
     further_info: List[FurtherInfoDetail] = []
