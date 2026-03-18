@@ -157,6 +157,7 @@ export default function ApplicationPage() {
   const [app, setApp] = useState<ApplicationDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showFullProposal, setShowFullProposal] = useState(false);
 
   useEffect(() => {
     if (!regRef) return;
@@ -324,9 +325,51 @@ export default function ApplicationPage() {
               )}
             </div>
           )}
-          <div>
-            {formatProposal(app.long_proposal || app.proposal || 'No description available')}
-          </div>
+
+          {/* Show AI summary if available */}
+          {app.proposal_summary && (
+            <div style={{ marginBottom: '0.75rem' }}>
+              <p style={{
+                fontSize: '0.95rem',
+                lineHeight: '1.65',
+                color: 'var(--text-primary)',
+                fontWeight: 500,
+                margin: 0,
+              }}>
+                {app.proposal_summary}
+              </p>
+              <button
+                onClick={() => setShowFullProposal(!showFullProposal)}
+                style={{
+                  marginTop: '0.5rem',
+                  fontSize: '0.75rem',
+                  color: 'var(--teal)',
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  padding: 0,
+                }}
+              >
+                {showFullProposal ? '▲ Hide full description' : '▼ Show full planning description'}
+              </button>
+              {showFullProposal && (
+                <div style={{
+                  marginTop: '0.75rem',
+                  borderLeft: '3px solid var(--border)',
+                  paddingLeft: '1rem',
+                }}>
+                  {formatProposal(app.long_proposal || app.proposal || '')}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Fallback — no summary yet, show full proposal with formatting */}
+          {!app.proposal_summary && (
+            <div>
+              {formatProposal(app.long_proposal || app.proposal || 'No description available')}
+            </div>
+          )}
         </div>
 
         {/* Key Facts — show NPAD fields if available */}

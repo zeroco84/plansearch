@@ -88,6 +88,7 @@ export interface ApplicationDetail {
   time_exp: string | null;
   proposal: string | null;
   long_proposal: string | null;
+  proposal_summary: string | null;
   location: string | null;
   app_type: string | null;
   stage: string | null;

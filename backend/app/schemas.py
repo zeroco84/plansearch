@@ -151,6 +151,7 @@ class ApplicationDetail(BaseModel):
     time_exp: Optional[date] = None
     proposal: Optional[str] = None
     long_proposal: Optional[str] = None
+    proposal_summary: Optional[str] = None
     location: Optional[str] = None
     app_type: Optional[str] = None
     stage: Optional[str] = None

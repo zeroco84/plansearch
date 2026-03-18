@@ -3,6 +3,8 @@
 GET /api/applications/{reg_ref} — Full application detail with related records.
 """
 
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -12,8 +14,10 @@ from geoalchemy2.functions import ST_X, ST_Y
 from app.database import get_db
 from app.models import Application, Appeal, FurtherInfo, Company, ApplicationCompany, ApplicationDocument
 from app.schemas import ApplicationDetail, AppealDetail, FurtherInfoDetail, CompanyDetail, DocumentDetail
+from app.workers.summariser import get_or_create_summary
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 def get_portal_url(reg_ref: str, year: int | None) -> str:
@@ -82,6 +86,17 @@ async def get_application(
             directors=c.directors,
         )
 
+    # Generate or retrieve AI summary
+    proposal_summary = app.proposal_summary
+    if app.proposal and not proposal_summary:
+        try:
+            proposal_summary = await get_or_create_summary(
+                db, app.reg_ref, app.long_proposal or app.proposal
+            )
+        except Exception as e:
+            logger.warning(f"Summary generation failed for {reg_ref}: {e}")
+            proposal_summary = None
+
     # Build response
     return ApplicationDetail(
         id=app.id,
@@ -94,6 +109,7 @@ async def get_application(
         time_exp=app.time_exp,
         proposal=app.proposal,
         long_proposal=app.long_proposal,
+        proposal_summary=proposal_summary,
         location=app.location,
         app_type=app.app_type,
         stage=app.stage,

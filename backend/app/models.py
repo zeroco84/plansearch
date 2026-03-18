@@ -45,6 +45,8 @@ class Application(Base):
 
     proposal = Column(Text)
     long_proposal = Column(Text)
+    proposal_summary = Column(Text)          # AI-generated clean summary
+    proposal_summarised_at = Column(DateTime)
     location = Column(Text)
     app_type = Column(String(100))
     stage = Column(String(100))
