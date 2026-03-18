@@ -82,14 +82,24 @@ export default function MapPage() {
     const bounds = map.getBounds();
     const zoom = map.getZoom();
 
+    // Guard: if bounds are invalid (map not yet sized), skip
+    const north = bounds.getNorth();
+    const south = bounds.getSouth();
+    const east = bounds.getEast();
+    const west = bounds.getWest();
+    if (isNaN(north) || isNaN(south) || isNaN(east) || isNaN(west)) {
+      console.warn('Map bounds not ready yet, skipping pin fetch');
+      return;
+    }
+
     const limit = zoom < 8 ? 200 : zoom < 11 ? 500 : zoom < 14 ? 1000 : 2000;
     const { category: cat, decision: dec } = filtersRef.current;
 
     const params = new URLSearchParams({
-      north: bounds.getNorth().toString(),
-      south: bounds.getSouth().toString(),
-      east: bounds.getEast().toString(),
-      west: bounds.getWest().toString(),
+      north: north.toString(),
+      south: south.toString(),
+      east: east.toString(),
+      west: west.toString(),
       limit: limit.toString(),
     });
     if (cat) params.set('dev_category', cat);
@@ -97,7 +107,9 @@ export default function MapPage() {
 
     setLoading(true);
     try {
-      const resp = await fetch(`${API_BASE}/api/map/pins?${params}`);
+      const url = `${API_BASE}/api/map/pins?${params}`;
+      console.log('Fetching map pins:', url);
+      const resp = await fetch(url);
       const data: PinResponse = await resp.json();
 
       setPinCount(data.total);
@@ -210,8 +222,17 @@ export default function MapPage() {
       clusterGroupRef.current = clusterGroup;
       mapRef.current = map;
 
-      // Initial load
-      fetchPins(map);
+      // Wait for the map to be fully ready before fetching pins
+      // This ensures getBounds() returns valid coordinates
+      map.whenReady(() => {
+        // Force a resize calculation in case the container wasn't sized yet
+        map.invalidateSize();
+
+        // Small delay to let the map settle after invalidateSize
+        setTimeout(() => {
+          fetchPins(map);
+        }, 100);
+      });
 
       // Reload on viewport change (debounced)
       map.on('moveend', () => {
