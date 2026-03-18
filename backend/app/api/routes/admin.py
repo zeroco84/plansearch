@@ -596,8 +596,8 @@ async def trigger_cro_enrichment(
     db: AsyncSession = Depends(get_db),
 ):
     """Trigger CRO company enrichment for applications with company-like names."""
-    from app.workers.cro import run_cro_enrichment_batch
-    background_tasks.add_task(run_cro_enrichment_batch, db)
+    from app.workers.cro_enricher import run_cro_enrichment
+    background_tasks.add_task(run_cro_enrichment, db)
     return {"status": "triggered", "source": "cro"}
 
 
