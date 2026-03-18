@@ -267,6 +267,21 @@ async def trigger_bcms_sync(
     return {"message": "BCMS sync triggered", "sync_id": sync_log.id}
 
 
+@router.post("/admin/sync/substack")
+async def trigger_substack_sync(
+    _token: str = Depends(verify_admin_token),
+):
+    """Sync latest posts from The Build Substack RSS feed."""
+    from app.workers.substack_ingest import ingest_substack_posts
+
+    async def _run():
+        async with async_session_factory() as db:
+            await ingest_substack_posts(db)
+
+    asyncio.create_task(_run())
+    return {"status": "triggered", "source": "substack"}
+
+
 async def _run_npad_background(sync_id: int):
     """Run NPAD ingest in background, updating sync_progress in real-time."""
     from app.workers.npad_ingest import run_npad_ingest_with_progress

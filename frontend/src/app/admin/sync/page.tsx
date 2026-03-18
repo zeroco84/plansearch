@@ -22,6 +22,7 @@ export default function SyncPage() {
   const [logs, setLogs] = useState<any[]>([]);
   const [triggeringNpad, setTriggeringNpad] = useState(false);
   const [triggeringBcms, setTriggeringBcms] = useState(false);
+  const [triggeringSubstack, setTriggeringSubstack] = useState(false);
   const [message, setMessage] = useState('');
   const [progress, setProgress] = useState<SyncProgress | null>(null);
   const [polling, setPolling] = useState(false);
@@ -111,6 +112,22 @@ export default function SyncPage() {
       setMessage('Failed to trigger BCMS sync');
     } finally {
       setTriggeringBcms(false);
+    }
+  };
+
+  const handleSubstackSync = async () => {
+    setTriggeringSubstack(true);
+    setMessage('');
+    try {
+      await fetch('/api/admin/sync/substack', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setMessage('Substack sync triggered — posts loading in background');
+    } catch {
+      setMessage('Failed to trigger Substack sync');
+    } finally {
+      setTriggeringSubstack(false);
     }
   };
 
@@ -254,6 +271,27 @@ export default function SyncPage() {
           >
             {triggeringBcms ? <RefreshCw style={{ width: '16px', height: '16px', animation: 'spin 1s linear infinite' }} /> : <Play style={{ width: '16px', height: '16px' }} />}
             {triggeringBcms ? 'Starting...' : progress?.running && progress?.source === 'bcms' ? 'Running...' : 'Trigger BCMS Sync'}
+          </button>
+        </div>
+
+        {/* Substack Sync */}
+        <div className="admin-card" style={{ marginBottom: '1.25rem', padding: '1.5rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem' }}>
+            <BookOpen style={{ width: '18px', height: '18px', color: '#FF6719' }} />
+            <h3 style={{ fontSize: '1rem', fontWeight: '600', margin: 0 }}>The Build — Substack Posts</h3>
+          </div>
+          <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', marginBottom: '1rem', lineHeight: '1.5' }}>
+            Sync latest posts from The Build newsletter RSS feed. Updates the Insights page.
+            Also syncs automatically on server startup and every 6 hours.
+          </p>
+          <button
+            className="btn-primary"
+            onClick={handleSubstackSync}
+            disabled={triggeringSubstack}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', background: '#FF6719' }}
+          >
+            {triggeringSubstack ? <RefreshCw style={{ width: '16px', height: '16px', animation: 'spin 1s linear infinite' }} /> : <Play style={{ width: '16px', height: '16px' }} />}
+            {triggeringSubstack ? 'Syncing...' : 'Sync Substack Posts'}
           </button>
         </div>
 
