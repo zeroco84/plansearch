@@ -115,6 +115,22 @@ export interface ApplicationDetail {
   further_info: FurtherInfoDetail[];
   company: CompanyDetail | null;
   documents: DocumentDetail[];
+  bcms: BcmsDetail | null;
+}
+
+export interface BcmsDetail {
+  cn_commencement_date: string | null;
+  cn_total_dwelling_units: number | null;
+  cn_total_floor_area: number | null;
+  cn_total_apartments: number | null;
+  cn_number_stories_above: number | null;
+  cn_description: string | null;
+  cn_project_status: string | null;
+  cn_lat: number | null;
+  cn_lng: number | null;
+  ccc_date_validated: string | null;
+  ccc_units_completed: number | null;
+  local_authority: string | null;
 }
 
 export interface StatsResponse {

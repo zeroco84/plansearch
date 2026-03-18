@@ -476,6 +476,59 @@ export default function ApplicationPage() {
         </div>
 
         {/* Appeals */}
+        {app.bcms && (
+          <div className="detail-section fade-in" style={{ animationDelay: '210ms' }}>
+            <h3>BUILDING CONTROL</h3>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+              {app.bcms.cn_commencement_date && (
+                <div style={{ padding: '0.75rem', background: 'var(--warm-white)', borderRadius: '8px' }}>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Construction commenced</div>
+                  <div style={{ fontWeight: 600 }}>{formatDate(app.bcms.cn_commencement_date)}</div>
+                </div>
+              )}
+              {app.bcms.ccc_date_validated && (
+                <div style={{ padding: '0.75rem', background: 'rgba(22, 163, 106, 0.05)', borderRadius: '8px', border: '1px solid rgba(22, 163, 106, 0.15)' }}>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Certificate of compliance</div>
+                  <div style={{ fontWeight: 600, color: '#16a34a' }}>
+                    ✓ Completed {formatDate(app.bcms.ccc_date_validated)}
+                    {app.bcms.ccc_units_completed ? ` · ${app.bcms.ccc_units_completed} units` : ''}
+                  </div>
+                </div>
+              )}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '0.5rem' }}>
+                {app.bcms.cn_total_dwelling_units && app.bcms.cn_total_dwelling_units > 0 && (
+                  <div style={{ padding: '0.75rem', background: 'var(--warm-white)', borderRadius: '8px' }}>
+                    <div style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--teal)' }}>{app.bcms.cn_total_dwelling_units}</div>
+                    <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Dwelling Units</div>
+                  </div>
+                )}
+                {app.bcms.cn_total_floor_area && app.bcms.cn_total_floor_area > 0 && (
+                  <div style={{ padding: '0.75rem', background: 'var(--warm-white)', borderRadius: '8px' }}>
+                    <div style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--teal)' }}>{app.bcms.cn_total_floor_area.toLocaleString()} m²</div>
+                    <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Floor Area</div>
+                  </div>
+                )}
+                {app.bcms.cn_total_apartments && app.bcms.cn_total_apartments > 0 && (
+                  <div style={{ padding: '0.75rem', background: 'var(--warm-white)', borderRadius: '8px' }}>
+                    <div style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--teal)' }}>{app.bcms.cn_total_apartments}</div>
+                    <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Apartments</div>
+                  </div>
+                )}
+                {app.bcms.cn_number_stories_above && app.bcms.cn_number_stories_above > 0 && (
+                  <div style={{ padding: '0.75rem', background: 'var(--warm-white)', borderRadius: '8px' }}>
+                    <div style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--teal)' }}>{app.bcms.cn_number_stories_above}</div>
+                    <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Stories</div>
+                  </div>
+                )}
+              </div>
+            </div>
+            <div style={{ marginTop: '0.5rem', fontSize: '0.65rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
+              Source: Building Control Management System (BCMS)
+            </div>
+          </div>
+        )}
+
+        {/* Appeals */}
         {app.appeals.length > 0 && (
           <div className="detail-section fade-in" style={{ animationDelay: '240ms' }}>
             <h3>APPEALS ({app.appeals.length})</h3>

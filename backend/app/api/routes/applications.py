@@ -6,14 +6,14 @@ GET /api/applications/{reg_ref} — Full application detail with related records
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from geoalchemy2.functions import ST_X, ST_Y
 
 from app.database import get_db
 from app.models import Application, Appeal, FurtherInfo, Company, ApplicationCompany, ApplicationDocument
-from app.schemas import ApplicationDetail, AppealDetail, FurtherInfoDetail, CompanyDetail, DocumentDetail
+from app.schemas import ApplicationDetail, AppealDetail, FurtherInfoDetail, CompanyDetail, DocumentDetail, BcmsDetail
 from app.workers.summariser import get_or_create_summary
 
 router = APIRouter()
@@ -102,6 +102,39 @@ async def get_application(
             logger.warning(f"Summary generation failed for {reg_ref}: {e}")
             proposal_summary = None
 
+    # Fetch BCMS commencement notice data
+    bcms_detail = None
+    try:
+        # Strip council prefix to match BCMS raw ref
+        # e.g. "SD/SD26B/0100W" → "SD26B/0100W"
+        raw_ref = reg_ref.split("/", 1)[1] if "/" in reg_ref else reg_ref
+        bcms_result = await db.execute(text("""
+            SELECT cn_commencement_date, cn_total_dwelling_units, cn_total_floor_area,
+                   ccc_date_validated, ccc_units_completed, local_authority,
+                   cn_total_apartments, cn_number_stories_above,
+                   cn_lat, cn_lng
+            FROM commencement_notices
+            WHERE reg_ref = :raw_ref
+            LIMIT 1
+        """), {"raw_ref": raw_ref})
+        bcms_row = bcms_result.fetchone()
+        if bcms_row:
+            m = bcms_row._mapping
+            bcms_detail = BcmsDetail(
+                cn_commencement_date=m.get("cn_commencement_date"),
+                cn_total_dwelling_units=m.get("cn_total_dwelling_units"),
+                cn_total_floor_area=m.get("cn_total_floor_area"),
+                cn_total_apartments=m.get("cn_total_apartments"),
+                cn_number_stories_above=m.get("cn_number_stories_above"),
+                cn_lat=m.get("cn_lat"),
+                cn_lng=m.get("cn_lng"),
+                ccc_date_validated=m.get("ccc_date_validated"),
+                ccc_units_completed=m.get("ccc_units_completed"),
+                local_authority=m.get("local_authority"),
+            )
+    except Exception as e:
+        logger.warning(f"BCMS lookup failed for {reg_ref}: {e}")
+
     # Build response
     return ApplicationDetail(
         id=app.id,
@@ -172,4 +205,5 @@ async def get_application(
             )
             for d in app.documents
         ],
+        bcms=bcms_detail,
     )

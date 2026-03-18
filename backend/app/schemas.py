@@ -181,9 +181,26 @@ class ApplicationDetail(BaseModel):
     further_info: List[FurtherInfoDetail] = []
     company: Optional[CompanyDetail] = None
     documents: List[DocumentDetail] = []
+    bcms: Optional['BcmsDetail'] = None
 
     class Config:
         from_attributes = True
+
+
+class BcmsDetail(BaseModel):
+    """Building control data from BCMS commencement notices."""
+    cn_commencement_date: Optional[date] = None
+    cn_total_dwelling_units: Optional[int] = None
+    cn_total_floor_area: Optional[float] = None
+    cn_total_apartments: Optional[int] = None
+    cn_number_stories_above: Optional[int] = None
+    cn_description: Optional[str] = None
+    cn_project_status: Optional[str] = None
+    cn_lat: Optional[float] = None
+    cn_lng: Optional[float] = None
+    ccc_date_validated: Optional[date] = None
+    ccc_units_completed: Optional[int] = None
+    local_authority: Optional[str] = None
 
 
 # ── Map ─────────────────────────────────────────────────────────────────

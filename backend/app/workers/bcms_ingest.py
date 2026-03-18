@@ -46,6 +46,44 @@ HEADERS = {
 
 CSV_CHUNK_SIZE = 1000
 
+# Reverse of NPAD AUTHORITY_CODES — maps full authority name to code
+BCMS_AUTHORITY_TO_CODE = {
+    "Carlow County Council": "CW",
+    "Cavan County Council": "CN",
+    "Clare County Council": "CE",
+    "Cork City Council": "CO",
+    "Cork County Council": "CC",
+    "Donegal County Council": "DL",
+    "Dublin City Council": "DC",
+    "Dún Laoghaire-Rathdown County Council": "DLR",
+    "Dun Laoghaire-Rathdown County Council": "DLR",
+    "Fingal County Council": "FG",
+    "Galway City Council": "GY",
+    "Galway County Council": "GC",
+    "Kerry County Council": "KY",
+    "Kildare County Council": "KE",
+    "Kilkenny County Council": "KK",
+    "Laois County Council": "LS",
+    "Leitrim County Council": "LM",
+    "Limerick City & County Council": "LK",
+    "Limerick County Council": "LK",
+    "Longford County Council": "LD",
+    "Louth County Council": "LH",
+    "Mayo County Council": "MO",
+    "Meath County Council": "MH",
+    "Monaghan County Council": "MN",
+    "Offaly County Council": "OY",
+    "Roscommon County Council": "RN",
+    "Sligo County Council": "SO",
+    "South Dublin County Council": "SD",
+    "Tipperary County Council": "TA",
+    "Waterford City & County Council": "WD",
+    "Waterford City and County Council": "WD",
+    "Westmeath County Council": "WH",
+    "Wexford County Council": "WX",
+    "Wicklow County Council": "WW",
+}
+
 
 def safe_str(val) -> Optional[str]:
     if val is None or str(val).strip() in ("", "None", "nan", "null"):
@@ -114,7 +152,7 @@ async def ingest_commencement_notices(
             values = {
                 "reg_ref": planning_ref,
                 "local_authority": safe_str(
-                    row.get("CN_Local_Authority") or row.get("local_authority")
+                    row.get("LocalAuthority") or row.get("local_authority")
                 ),
                 "cn_commencement_date": safe_date(row.get("CN_Commencement_Date")),
                 "cn_total_floor_area": safe_float(
@@ -165,18 +203,24 @@ async def ingest_commencement_notices(
                 else:
                     stage = None
 
-                if stage:
-                    await db.execute(
-                        text("""
-                            UPDATE applications
-                            SET lifecycle_stage = :stage,
-                                lifecycle_updated_at = NOW()
-                            WHERE reg_ref = :ref
-                              AND (lifecycle_stage IS NULL
-                                   OR lifecycle_stage NOT IN ('complete'))
-                        """),
-                        {"stage": stage, "ref": planning_ref},
+                if stage and values.get("local_authority"):
+                    # Build prefixed ref matching applications table format
+                    code = BCMS_AUTHORITY_TO_CODE.get(
+                        values["local_authority"], ""
                     )
+                    if code:
+                        prefixed_ref = f"{code}/{planning_ref}"
+                        await db.execute(
+                            text("""
+                                UPDATE applications
+                                SET lifecycle_stage = :stage,
+                                    lifecycle_updated_at = NOW()
+                                WHERE reg_ref = :ref
+                                  AND (lifecycle_stage IS NULL
+                                       OR lifecycle_stage NOT IN ('complete'))
+                            """),
+                            {"stage": stage, "ref": prefixed_ref},
+                        )
 
                 await db.execute(text("RELEASE SAVEPOINT bcms_cn_upsert"))
             except Exception as db_err:
