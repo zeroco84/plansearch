@@ -260,6 +260,8 @@ async def upsert_benchmarks(
         }
 
         try:
+            await db.execute(text("SAVEPOINT benchmark_upsert"))
+
             cols = list(values.keys())
             placeholders = [f":{k}" for k in cols]
             sql = text(f"""
@@ -267,8 +269,11 @@ async def upsert_benchmarks(
                 VALUES ({', '.join(placeholders)})
             """)
             await db.execute(sql, values)
+
+            await db.execute(text("RELEASE SAVEPOINT benchmark_upsert"))
             count += 1
         except Exception as e:
+            await db.execute(text("ROLLBACK TO SAVEPOINT benchmark_upsert"))
             logger.error(f"Error upserting benchmark {mapped_type}: {e}")
             continue
 

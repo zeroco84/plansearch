@@ -396,7 +396,7 @@ class CostBenchmark(Base):
     cost_per_sqm_high = Column(Integer)
     cost_per_unit_low = Column(Integer)
     cost_per_unit_high = Column(Integer)
-    cost_basis = Column(String(20))  # "per_sqm" | "per_unit" | "both"
+    cost_basis = Column(String(50))  # "per_sqm" | "per_unit" | "both"
 
     # What's included and excluded
     inclusions = Column(ARRAY(String))
