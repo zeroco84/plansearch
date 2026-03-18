@@ -9,6 +9,7 @@ Both are free, no auth, updated regularly.
 Join key to planning applications: planning permission reference number.
 """
 
+import asyncio
 import io
 import logging
 from datetime import datetime
@@ -43,6 +44,8 @@ HEADERS = {
     "Accept": "text/csv,text/plain,*/*",
 }
 
+CSV_CHUNK_SIZE = 1000
+
 
 def safe_str(val) -> Optional[str]:
     if val is None or str(val).strip() in ("", "None", "nan", "null"):
@@ -76,28 +79,28 @@ def safe_int(val) -> Optional[int]:
     return None
 
 
-async def download_csv(url: str) -> pd.DataFrame:
-    """Download a CSV file from BCMS open data."""
+async def download_csv_text(url: str) -> str:
+    """Download a CSV file from BCMS open data — returns raw text."""
     logger.info(f"Downloading CSV from {url}")
     async with httpx.AsyncClient(
         headers=HEADERS, follow_redirects=True, timeout=120.0
     ) as client:
         r = await client.get(url)
         r.raise_for_status()
-    df = pd.read_csv(io.StringIO(r.text), low_memory=False)
-    logger.info(f"Downloaded {len(df)} rows")
-    return df
+    logger.info(f"Downloaded {len(r.text)} bytes")
+    return r.text
 
 
 async def ingest_commencement_notices(
-    db: AsyncSession, df: pd.DataFrame
+    db: AsyncSession, df: pd.DataFrame, progress: Optional[dict] = None
 ) -> int:
     """Upsert commencement notices into commencement_notices table.
 
     Also updates lifecycle_stage on matching applications.
-    Uses the existing model schema (reg_ref as the join key).
+    Uses savepoints per record and commits every 100 rows.
     """
     count = 0
+    errors = 0
     for _, row in df.iterrows():
         try:
             planning_ref = safe_str(
@@ -139,63 +142,85 @@ async def ingest_commencement_notices(
                 ):
                     values[k] = None
 
-            cols = list(values.keys())
-            placeholders = [f":{k}" for k in cols]
-            update_parts = [
-                f"{k} = EXCLUDED.{k}" for k in cols if k != "reg_ref"
-            ]
-            sql = text(f"""
-                INSERT INTO commencement_notices ({', '.join(cols)})
-                VALUES ({', '.join(placeholders)})
-                ON CONFLICT (reg_ref) DO UPDATE SET {', '.join(update_parts)}
-            """)
-            await db.execute(sql, values)
+            # Savepoint per record
+            await db.execute(text("SAVEPOINT bcms_cn_upsert"))
+            try:
+                cols = list(values.keys())
+                placeholders = [f":{k}" for k in cols]
+                update_parts = [
+                    f"{k} = EXCLUDED.{k}" for k in cols if k != "reg_ref"
+                ]
+                sql = text(f"""
+                    INSERT INTO commencement_notices ({', '.join(cols)})
+                    VALUES ({', '.join(placeholders)})
+                    ON CONFLICT (reg_ref) DO UPDATE SET {', '.join(update_parts)}
+                """)
+                await db.execute(sql, values)
 
-            # Update lifecycle_stage on matching application
-            if values.get("ccc_date_validated"):
-                stage = "complete"
-            elif values.get("cn_commencement_date"):
-                stage = "under_construction"
-            else:
-                stage = None
+                # Update lifecycle_stage on matching application
+                if values.get("ccc_date_validated"):
+                    stage = "complete"
+                elif values.get("cn_commencement_date"):
+                    stage = "under_construction"
+                else:
+                    stage = None
 
-            if stage:
-                await db.execute(
-                    text("""
-                        UPDATE applications
-                        SET lifecycle_stage = :stage,
-                            lifecycle_updated_at = NOW()
-                        WHERE reg_ref = :ref
-                          AND (lifecycle_stage IS NULL
-                               OR lifecycle_stage NOT IN ('complete'))
-                    """),
-                    {"stage": stage, "ref": planning_ref},
-                )
+                if stage:
+                    await db.execute(
+                        text("""
+                            UPDATE applications
+                            SET lifecycle_stage = :stage,
+                                lifecycle_updated_at = NOW()
+                            WHERE reg_ref = :ref
+                              AND (lifecycle_stage IS NULL
+                                   OR lifecycle_stage NOT IN ('complete'))
+                        """),
+                        {"stage": stage, "ref": planning_ref},
+                    )
+
+                await db.execute(text("RELEASE SAVEPOINT bcms_cn_upsert"))
+            except Exception as db_err:
+                await db.execute(text("ROLLBACK TO SAVEPOINT bcms_cn_upsert"))
+                logger.error(f"DB error for CN {planning_ref}: {db_err}")
+                errors += 1
+                if progress:
+                    progress["errors"] += 1
+                continue
 
             count += 1
-            if count % 500 == 0:
+            if progress:
+                progress["processed"] += 1
+
+            if count % 100 == 0:
                 await db.commit()
                 logger.info(f"Committed {count} commencement notices...")
 
+            if count % 1000 == 0:
+                await asyncio.sleep(0.5)
+
         except Exception as e:
             logger.error(f"Error processing commencement notice: {e}")
+            errors += 1
+            if progress:
+                progress["errors"] += 1
             continue
 
     await db.commit()
-    logger.info(f"Upserted {count} commencement notices")
+    logger.info(f"Upserted {count} commencement notices ({errors} errors)")
     return count
 
 
 async def ingest_fsc_applications(
-    db: AsyncSession, df: pd.DataFrame
+    db: AsyncSession, df: pd.DataFrame, progress: Optional[dict] = None
 ) -> int:
     """Upsert FSC/DAC applications into fsc_applications table.
 
     FSC filing is a strong signal developer is committed to build.
     Updates lifecycle_stage to 'fsc_filed' on matching applications.
-    Uses the existing model schema.
+    Uses savepoints per record and commits every 100 rows.
     """
     count = 0
+    errors = 0
     for _, row in df.iterrows():
         try:
             planning_ref = safe_str(
@@ -237,53 +262,75 @@ async def ingest_fsc_applications(
                 ):
                     values[k] = None
 
-            cols = list(values.keys())
-            placeholders = [f":{k}" for k in cols]
-            update_parts = [
-                f"{k} = EXCLUDED.{k}" for k in cols if k != "reg_ref"
-            ]
-            sql = text(f"""
-                INSERT INTO fsc_applications ({', '.join(cols)})
-                VALUES ({', '.join(placeholders)})
-                ON CONFLICT (reg_ref) DO UPDATE SET {', '.join(update_parts)}
-            """)
-            await db.execute(sql, values)
+            # Savepoint per record
+            await db.execute(text("SAVEPOINT bcms_fsc_upsert"))
+            try:
+                cols = list(values.keys())
+                placeholders = [f":{k}" for k in cols]
+                update_parts = [
+                    f"{k} = EXCLUDED.{k}" for k in cols if k != "reg_ref"
+                ]
+                sql = text(f"""
+                    INSERT INTO fsc_applications ({', '.join(cols)})
+                    VALUES ({', '.join(placeholders)})
+                    ON CONFLICT (reg_ref) DO UPDATE SET {', '.join(update_parts)}
+                """)
+                await db.execute(sql, values)
 
-            # Update lifecycle_stage — FSC filed means construction is imminent
-            await db.execute(
-                text("""
-                    UPDATE applications
-                    SET lifecycle_stage = 'fsc_filed',
-                        lifecycle_updated_at = NOW()
-                    WHERE reg_ref = :ref
-                      AND (lifecycle_stage IS NULL
-                           OR lifecycle_stage IN (
-                               'submitted', 'registered',
-                               'decided_granted', 'appealed',
-                               'appeal_granted'
-                           ))
-                """),
-                {"ref": planning_ref},
-            )
+                # Update lifecycle_stage — FSC filed means construction is imminent
+                await db.execute(
+                    text("""
+                        UPDATE applications
+                        SET lifecycle_stage = 'fsc_filed',
+                            lifecycle_updated_at = NOW()
+                        WHERE reg_ref = :ref
+                          AND (lifecycle_stage IS NULL
+                               OR lifecycle_stage IN (
+                                   'submitted', 'registered',
+                                   'decided_granted', 'appealed',
+                                   'appeal_granted'
+                               ))
+                    """),
+                    {"ref": planning_ref},
+                )
+
+                await db.execute(text("RELEASE SAVEPOINT bcms_fsc_upsert"))
+            except Exception as db_err:
+                await db.execute(text("ROLLBACK TO SAVEPOINT bcms_fsc_upsert"))
+                logger.error(f"DB error for FSC {planning_ref}: {db_err}")
+                errors += 1
+                if progress:
+                    progress["errors"] += 1
+                continue
 
             count += 1
-            if count % 500 == 0:
+            if progress:
+                progress["processed"] += 1
+
+            if count % 100 == 0:
                 await db.commit()
                 logger.info(f"Committed {count} FSC applications...")
 
+            if count % 1000 == 0:
+                await asyncio.sleep(0.5)
+
         except Exception as e:
             logger.error(f"Error processing FSC application: {e}")
+            errors += 1
+            if progress:
+                progress["errors"] += 1
             continue
 
     await db.commit()
-    logger.info(f"Upserted {count} FSC applications")
+    logger.info(f"Upserted {count} FSC applications ({errors} errors)")
     return count
 
 
 async def run_bcms_ingest(db: AsyncSession) -> dict:
     """Run the full BCMS ingest pipeline.
 
-    Downloads and upserts both commencement notices and FSC applications.
+    Downloads CSVs and processes in chunks of 1000 rows to avoid
+    loading everything into RAM at once.
     """
     logger.info("Starting BCMS ingest...")
 
@@ -295,12 +342,16 @@ async def run_bcms_ingest(db: AsyncSession) -> dict:
 
     try:
         logger.info("Downloading BCMS commencement notices...")
-        cn_df = await download_csv(BCMS_CN_URL)
-        stats["cn_count"] = await ingest_commencement_notices(db, cn_df)
+        cn_text = await download_csv_text(BCMS_CN_URL)
+        chunks = pd.read_csv(io.StringIO(cn_text), low_memory=False, chunksize=CSV_CHUNK_SIZE)
+        for chunk in chunks:
+            stats["cn_count"] += await ingest_commencement_notices(db, chunk)
 
         logger.info("Downloading BCMS FSC applications...")
-        fsc_df = await download_csv(BCMS_FSC_URL)
-        stats["fsc_count"] = await ingest_fsc_applications(db, fsc_df)
+        fsc_text = await download_csv_text(BCMS_FSC_URL)
+        chunks = pd.read_csv(io.StringIO(fsc_text), low_memory=False, chunksize=CSV_CHUNK_SIZE)
+        for chunk in chunks:
+            stats["fsc_count"] += await ingest_fsc_applications(db, chunk)
 
         sync_log.status = "completed"
         sync_log.completed_at = datetime.utcnow()
@@ -324,7 +375,8 @@ async def run_bcms_ingest_with_progress(
 ) -> dict:
     """Run BCMS ingest with live progress updates to a shared dict.
 
-    The progress dict is read by the /admin/sync/progress endpoint.
+    Downloads CSVs and processes in chunks of 1000 rows.
+    Supports stop_requested flag from admin UI.
     """
     logger.info("Starting BCMS ingest (with progress)...")
 
@@ -332,57 +384,33 @@ async def run_bcms_ingest_with_progress(
 
     try:
         logger.info("Downloading BCMS commencement notices...")
-        cn_df = await download_csv(BCMS_CN_URL)
+        cn_text = await download_csv_text(BCMS_CN_URL)
+        chunks = pd.read_csv(io.StringIO(cn_text), low_memory=False, chunksize=CSV_CHUNK_SIZE)
+        for chunk in chunks:
+            if progress.get("stop_requested"):
+                logger.info("BCMS ingest stopped by admin")
+                await db.commit()
+                break
+            stats["cn_count"] += await ingest_commencement_notices(db, chunk, progress)
 
-        for _, row in cn_df.iterrows():
-            try:
-                planning_ref = safe_str(
-                    row.get("CN_Planning_Permission_Number")
-                    or row.get("planning_permission_number")
-                )
-                if not planning_ref:
-                    progress["errors"] += 1
-                    continue
-                # Delegate to existing ingest logic by building a single-row df
-                progress["processed"] += 1
-                stats["cn_count"] += 1
-
-                if progress["processed"] % 500 == 0:
+        if not progress.get("stop_requested"):
+            logger.info("Downloading BCMS FSC applications...")
+            fsc_text = await download_csv_text(BCMS_FSC_URL)
+            chunks = pd.read_csv(io.StringIO(fsc_text), low_memory=False, chunksize=CSV_CHUNK_SIZE)
+            for chunk in chunks:
+                if progress.get("stop_requested"):
+                    logger.info("BCMS ingest stopped by admin")
                     await db.commit()
-            except Exception:
-                progress["errors"] += 1
-
-        # Do the actual bulk ingest
-        stats["cn_count"] = await ingest_commencement_notices(db, cn_df)
-        progress["processed"] = stats["cn_count"]
-
-        logger.info("Downloading BCMS FSC applications...")
-        fsc_df = await download_csv(BCMS_FSC_URL)
-
-        fsc_base = progress["processed"]
-        for _, row in fsc_df.iterrows():
-            try:
-                planning_ref = safe_str(
-                    row.get("planning_permission_reference_no")
-                    or row.get("PlanningPermissionReferenceNo")
-                )
-                if not planning_ref:
-                    progress["errors"] += 1
-                    continue
-                progress["processed"] += 1
-                stats["fsc_count"] += 1
-            except Exception:
-                progress["errors"] += 1
-
-        # Do the actual bulk ingest
-        stats["fsc_count"] = await ingest_fsc_applications(db, fsc_df)
-        progress["processed"] = fsc_base + stats["fsc_count"]
+                    break
+                stats["fsc_count"] += await ingest_fsc_applications(db, chunk, progress)
 
         progress["running"] = False
+        progress["stop_requested"] = False
         logger.info(f"BCMS ingest complete: {stats}")
         return stats
 
     except Exception as e:
         progress["running"] = False
+        progress["stop_requested"] = False
         logger.error(f"BCMS ingest failed: {e}")
         raise
