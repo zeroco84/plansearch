@@ -212,8 +212,8 @@ export default function MapPage() {
             <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full" style={{ background: '#10b981' }} /> Granted</div>
             <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full" style={{ background: '#ef4444' }} /> Refused</div>
             <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full" style={{ background: '#f59e0b' }} /> Further Info</div>
-            <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full" style={{ background: '#3b82f6' }} /> Pending</div>
-            <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full" style={{ background: '#6b7280' }} /> Other</div>
+            <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full" style={{ background: '#3b82f6' }} /> Pending / Undecided</div>
+            <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full" style={{ background: '#6b7280' }} /> Other (withdrawn, invalid)</div>
           </div>
         </div>
       </div>

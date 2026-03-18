@@ -414,22 +414,35 @@ export const CATEGORY_LABELS: Record<string, string> = {
 
 // Decision colour mapping
 export const DECISION_COLORS: Record<string, string> = {
-  GRANTED: '#10b981',
-  REFUSED: '#ef4444',
-  FURTHER_INFO: '#f59e0b',
-  SPLIT: '#8b5cf6',
-  WITHDRAWN: '#6b7280',
-  INVALID: '#6b7280',
-  PENDING: '#3b82f6',
+  granted: '#10b981',
+  refused: '#ef4444',
+  further_info: '#f59e0b',
+  pending: '#3b82f6',
+  other: '#6b7280',
 };
 
+export function getDecisionStatus(decision: string | null): 'granted' | 'refused' | 'pending' | 'further_info' | 'other' {
+  if (!decision || decision.trim() === '' || decision === 'N/A') return 'pending';
+
+  const d = decision.toUpperCase();
+
+  if (d.includes('GRANT') || d.includes('UNCONDITIONAL') || d.includes('APPROVE') || d === 'EXEMPT')
+    return 'granted';
+
+  if (d.includes('REFUS') || d.includes('REJECT'))
+    return 'refused';
+
+  if (d.includes('FURTHER') || d.includes('CLARIF') || d.includes('MORE INFO') || d.includes('F.I.') || d.includes('FI '))
+    return 'further_info';
+
+  if (d.includes('WITHDRAW') || d.includes('INVALID') || d.includes('DECLARED EXEMPT') || d.includes('SPLIT'))
+    return 'other';
+
+  return 'pending';
+}
+
 export function getDecisionColor(decision: string | null): string {
-  if (!decision) return '#6b7280';
-  const upper = decision.toUpperCase();
-  for (const [key, color] of Object.entries(DECISION_COLORS)) {
-    if (upper.includes(key)) return color;
-  }
-  return '#6b7280';
+  return DECISION_COLORS[getDecisionStatus(decision)];
 }
 
 export function formatDate(date: string | null): string {
