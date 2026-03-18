@@ -46,9 +46,9 @@ class Application(Base):
     proposal = Column(Text)
     long_proposal = Column(Text)
     location = Column(Text)
-    app_type = Column(String(20))
+    app_type = Column(String(100))
     stage = Column(String(100))
-    decision = Column(String(50))
+    decision = Column(String(100))
 
     # AI Classification
     dev_category = Column(String(50))
@@ -65,31 +65,31 @@ class Application(Base):
     applicant_scrape_failed = Column(Boolean, default=False)
 
     # CRO enrichment
-    cro_number = Column(String(20))
+    cro_number = Column(String(50))
     cro_enriched_at = Column(DateTime(timezone=True))
 
     # National data (NPAD fields — Phase 2)
     planning_authority = Column(String(100))
-    land_use_code = Column(String(50))
+    land_use_code = Column(String(100))
     area_of_site = Column(Float)
     num_residential_units = Column(Integer)
     floor_area = Column(Float)
     one_off_house = Column(Boolean)
     link_app_details = Column(Text)
     npad_object_id = Column(Integer)
-    data_source = Column(String(20), default="dcc_csv")
+    data_source = Column(String(50), default="dcc_csv")
     eircode = Column(String(10))
 
     # NPAD appeal fields
-    appeal_ref_number = Column(String(30))
-    appeal_status = Column(String(50))
-    appeal_decision = Column(String(50))
+    appeal_ref_number = Column(String(100))
+    appeal_status = Column(String(100))
+    appeal_decision = Column(String(100))
     appeal_decision_date = Column(Date)
     fi_request_date = Column(Date)
     fi_rec_date = Column(Date)
 
     # Lifecycle stage (Phase 2)
-    lifecycle_stage = Column(String(30))
+    lifecycle_stage = Column(String(50))
     lifecycle_updated_at = Column(DateTime(timezone=True))
 
     # AI value estimation (Phase 2)
