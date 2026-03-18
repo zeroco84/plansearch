@@ -8,7 +8,7 @@ import json
 from typing import Optional
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException, Header, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Header, Query
 from sqlalchemy import select, func, update, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from sse_starlette.sse import EventSourceResponse
@@ -585,6 +585,20 @@ async def reset_applications(
     await db.execute(text("TRUNCATE TABLE applications RESTART IDENTITY CASCADE"))
     await db.commit()
     return {"status": "reset", "message": "Applications table cleared. Run NPAD sync to reload."}
+
+
+# ── CRO Enrichment ──────────────────────────────────────────────────────
+
+@router.post("/admin/enrich/cro")
+async def trigger_cro_enrichment(
+    background_tasks: BackgroundTasks,
+    _token: str = Depends(verify_admin_token),
+    db: AsyncSession = Depends(get_db),
+):
+    """Trigger CRO company enrichment for applications with company-like names."""
+    from app.workers.cro import run_cro_enrichment_batch
+    background_tasks.add_task(run_cro_enrichment_batch, db)
+    return {"status": "triggered", "source": "cro"}
 
 
 # ── SSE Stream ──────────────────────────────────────────────────────────
