@@ -1,17 +1,21 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import {
   ArrowLeft, MapPin, Calendar, Building2, FileText, Scale,
   ExternalLink, Clock, CheckCircle, AlertCircle, XCircle,
-  Database, Settings, Map as MapIcon, Download
+  Database, Settings, Map as MapIcon, Download, Search,
+  TrendingUp, BookOpen,
 } from 'lucide-react';
 import {
   getApplication, ApplicationDetail,
   CATEGORY_LABELS, formatDate, formatFileSize, getPortalDocumentUrl,
 } from '@/lib/api';
+
+
+/* ── Decision helpers ────────────────────────────────────────────── */
 
 function getDecisionClass(decision: string | null): string {
   if (!decision) return 'decision-pending';
@@ -35,6 +39,9 @@ function getDecisionLabel(decision: string | null): string {
   return decision;
 }
 
+
+/* ── Document icon helper ────────────────────────────────────────── */
+
 function getDocIcon(docName: string): string {
   const name = docName.toLowerCase();
   if (name.includes('plan') || name.includes('elevation') || name.includes('drawing')) return '📐';
@@ -44,6 +51,104 @@ function getDocIcon(docName: string): string {
   if (name.includes('site')) return '🏠';
   return '📄';
 }
+
+
+/* ── Format long proposal text with structure ────────────────────── */
+
+function formatProposal(text: string): React.ReactElement[] {
+  if (!text) return [];
+
+  const elements: React.ReactElement[] = [];
+
+  // Split on common patterns that indicate list items or paragraph breaks
+  // Patterns: "i.", "ii.", "iii.", "iv.", "(a)", "(b)", "(1)", "(2)", numbered "1.", "2."
+  // Also split on double newlines, bullet chars, and "•"
+  const lines = text
+    .replace(/\r\n/g, '\n')
+    // Insert line breaks before numbered items
+    .replace(/(?<=[.;])\s+(?=(i{1,3}v?|vi{0,3}|[a-z])\.\s)/gi, '\n')
+    .replace(/(?<=[.;])\s+(?=\([a-z0-9]+\)\s)/gi, '\n')
+    .replace(/(?<=[.;])\s+(?=\d+\.\s)/g, '\n')
+    .replace(/(?<=[.;])\s+(?=•\s)/g, '\n')
+    .split('\n')
+    .map(l => l.trim())
+    .filter(Boolean);
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+
+    // Check if it looks like a list item
+    const isListItem =
+      /^(i{1,3}v?|vi{0,3})\.\s/i.test(line) ||   // i. ii. iii. iv. v. vi.
+      /^\([a-z0-9]+\)\s/i.test(line) ||              // (a) (b) (1) (2)
+      /^\d+\.\s/.test(line) ||                        // 1. 2. 3.
+      /^•\s/.test(line) ||                            // bullet
+      /^[-–—]\s/.test(line);                          // dash
+
+    if (isListItem) {
+      elements.push(
+        <div key={i} style={{
+          paddingLeft: '1.25rem',
+          position: 'relative',
+          marginBottom: '0.35rem',
+          fontSize: '0.875rem',
+          lineHeight: '1.6',
+          color: 'var(--text-secondary)',
+        }}>
+          <span style={{
+            position: 'absolute',
+            left: 0,
+            color: 'var(--teal)',
+            fontWeight: 600,
+          }}>›</span>
+          {line.replace(/^(i{1,3}v?|vi{0,3})\.\s/i, '')
+            .replace(/^\([a-z0-9]+\)\s/i, '')
+            .replace(/^\d+\.\s/, '')
+            .replace(/^[•\-–—]\s/, '')}
+        </div>
+      );
+    } else {
+      elements.push(
+        <p key={i} style={{
+          fontSize: '0.875rem',
+          lineHeight: '1.7',
+          color: 'var(--text-secondary)',
+          marginBottom: '0.5rem',
+        }}>
+          {line}
+        </p>
+      );
+    }
+  }
+
+  return elements;
+}
+
+
+/* ── Shared Nav ──────────────────────────────────────────────────── */
+
+function AppNav() {
+  return (
+    <nav style={{ background: '#0d1117', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: '64px', padding: '0 2rem', width: '100%' }}>
+        <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'white', textDecoration: 'none' }}>
+          <Database className="w-5 h-5 text-[var(--teal)]" />
+          <span style={{ color: 'white', fontSize: '1.125rem', fontWeight: '600', letterSpacing: '-0.01em', fontFamily: "'Playfair Display', serif" }}>PlanSearch</span>
+        </Link>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+          <Link href="/" className="nav-link"><Search className="w-5 h-5" /><span className="hidden sm:inline">Search</span></Link>
+          <Link href="/map" className="nav-link"><MapIcon className="w-5 h-5" /><span className="hidden sm:inline">Map</span></Link>
+          <Link href="/significant" className="nav-link"><TrendingUp className="w-5 h-5" /><span className="hidden sm:inline">Significant</span></Link>
+          <Link href="/insights" className="nav-link"><BookOpen className="w-5 h-5" /><span className="hidden sm:inline">Insights</span></Link>
+          <Link href="/admin" className="nav-link"><Settings className="w-5 h-5" /><span className="hidden sm:inline">Admin</span></Link>
+        </div>
+      </div>
+    </nav>
+  );
+}
+
+
+/* ── Page Component ──────────────────────────────────────────────── */
 
 export default function ApplicationPage() {
   const params = useParams();
@@ -71,19 +176,12 @@ export default function ApplicationPage() {
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-[var(--warm-white)]">
-        <nav className="hero-gradient" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-          <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
-            <Link href="/" className="flex items-center gap-2 text-white no-underline">
-              <Database className="w-5 h-5 text-[var(--teal)]" />
-              <span className="font-semibold text-lg" style={{ fontFamily: "'Playfair Display', serif" }}>PlanSearch</span>
-            </Link>
-          </div>
-        </nav>
-        <div className="max-w-4xl mx-auto px-4 py-8 space-y-4">
-          <div className="skeleton h-8 w-48" />
-          <div className="skeleton h-6 w-96" />
-          <div className="skeleton h-32 w-full" />
+      <main style={{ minHeight: '100vh', background: 'var(--warm-white)' }}>
+        <AppNav />
+        <div style={{ maxWidth: '56rem', margin: '0 auto', padding: '2rem 1rem' }}>
+          <div className="skeleton" style={{ height: '2rem', width: '12rem', marginBottom: '1rem' }} />
+          <div className="skeleton" style={{ height: '1.5rem', width: '24rem', marginBottom: '1rem' }} />
+          <div className="skeleton" style={{ height: '8rem', width: '100%' }} />
         </div>
       </main>
     );
@@ -91,21 +189,14 @@ export default function ApplicationPage() {
 
   if (error || !app) {
     return (
-      <main className="min-h-screen bg-[var(--warm-white)]">
-        <nav className="hero-gradient" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-          <div className="max-w-7xl mx-auto px-4 py-3">
-            <Link href="/" className="flex items-center gap-2 text-white no-underline">
-              <Database className="w-5 h-5 text-[var(--teal)]" />
-              <span className="font-semibold text-lg" style={{ fontFamily: "'Playfair Display', serif" }}>PlanSearch</span>
-            </Link>
-          </div>
-        </nav>
-        <div className="max-w-4xl mx-auto px-4 py-16 text-center">
-          <AlertCircle className="w-12 h-12 text-red-400 mx-auto mb-4" />
-          <h2 className="text-xl" style={{ fontFamily: "'Playfair Display', serif" }}>Application Not Found</h2>
-          <p className="text-sm text-[var(--text-muted)] mt-2">{error}</p>
-          <Link href="/" className="btn-primary mt-6 inline-flex">
-            <ArrowLeft className="w-4 h-4" /> Back to Search
+      <main style={{ minHeight: '100vh', background: 'var(--warm-white)' }}>
+        <AppNav />
+        <div style={{ maxWidth: '56rem', margin: '0 auto', padding: '4rem 1rem', textAlign: 'center' }}>
+          <AlertCircle style={{ width: '3rem', height: '3rem', color: '#f87171', margin: '0 auto 1rem' }} />
+          <h2 style={{ fontSize: '1.25rem', fontFamily: "'Playfair Display', serif" }}>Application Not Found</h2>
+          <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', marginTop: '0.5rem' }}>{error}</p>
+          <Link href="/" className="btn-primary" style={{ display: 'inline-flex', marginTop: '1.5rem' }}>
+            <ArrowLeft style={{ width: '1rem', height: '1rem' }} /> Back to Search
           </Link>
         </div>
       </main>
@@ -113,56 +204,73 @@ export default function ApplicationPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[var(--warm-white)]">
-      {/* Nav */}
-      <nav className="hero-gradient" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-        <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2 text-white no-underline">
-            <Database className="w-5 h-5 text-[var(--teal)]" />
-            <span className="font-semibold text-lg" style={{ fontFamily: "'Playfair Display', serif" }}>PlanSearch</span>
-          </Link>
-          <div className="flex items-center gap-1">
-            <Link href="/map" className="nav-link"><MapIcon className="w-4 h-4" /><span className="hidden sm:inline">Map</span></Link>
-            <Link href="/admin" className="nav-link"><Settings className="w-4 h-4" /><span className="hidden sm:inline">Admin</span></Link>
-          </div>
-        </div>
-      </nav>
+    <main style={{ minHeight: '100vh', background: 'var(--warm-white)' }}>
+      <AppNav />
 
-      <div className="max-w-4xl mx-auto px-4 py-6">
+      <div style={{ maxWidth: '56rem', margin: '0 auto', padding: '1.5rem 1rem 3rem' }}>
         {/* Back link */}
-        <Link href="/" className="inline-flex items-center gap-1 text-sm text-[var(--text-muted)] hover:text-[var(--teal)] mb-6 no-underline">
-          <ArrowLeft className="w-4 h-4" /> Back to search
+        <Link
+          href="/"
+          style={{
+            display: 'inline-flex', alignItems: 'center', gap: '0.25rem',
+            fontSize: '0.875rem', color: 'var(--text-muted)',
+            textDecoration: 'none', marginBottom: '1rem',
+          }}
+        >
+          <ArrowLeft style={{ width: '1rem', height: '1rem' }} /> Back to search
         </Link>
 
         {/* Header Card */}
         <div className="detail-section fade-in">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <span className="reg-ref-badge text-base">{app.reg_ref}</span>
-              <span className={`decision-chip ${getDecisionClass(app.decision)} ml-3 text-sm`}>{getDecisionLabel(app.decision)}</span>
+          <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'start', justifyContent: 'space-between', gap: '0.75rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+              <span className="reg-ref-badge" style={{ fontSize: '0.9rem' }}>{app.reg_ref}</span>
+              <span className={`decision-chip ${getDecisionClass(app.decision)}`} style={{ fontSize: '0.85rem' }}>
+                {getDecisionLabel(app.decision)}
+              </span>
+              {app.planning_authority && (
+                <span style={{
+                  fontSize: '0.7rem', color: 'var(--text-muted)',
+                  background: 'var(--warm-white)', padding: '0.2rem 0.5rem',
+                  borderRadius: '4px', fontWeight: 500,
+                }}>
+                  {app.planning_authority}
+                </span>
+              )}
             </div>
             <a
               href={getPortalDocumentUrl(app.reg_ref, app.year)}
               target="_blank"
               rel="noopener noreferrer"
-              className="btn-secondary text-sm no-underline"
+              className="btn-secondary"
+              style={{ fontSize: '0.8rem', textDecoration: 'none', flexShrink: 0 }}
             >
-              <ExternalLink className="w-3.5 h-3.5" />
+              <ExternalLink style={{ width: '0.875rem', height: '0.875rem' }} />
               View on Portal
             </a>
           </div>
 
           {app.location && (
-            <div className="flex items-start gap-2 mt-4">
-              <MapPin className="w-4 h-4 text-[var(--teal)] mt-0.5 flex-shrink-0" />
-              <h2 className="text-lg font-semibold" style={{ fontFamily: "'Playfair Display', serif" }}>{app.location}</h2>
+            <div style={{ display: 'flex', alignItems: 'start', gap: '0.5rem', marginTop: '0.75rem' }}>
+              <MapPin style={{ width: '1rem', height: '1rem', color: 'var(--teal)', marginTop: '0.15rem', flexShrink: 0 }} />
+              <h2 style={{ fontSize: '1.1rem', fontWeight: 600, lineHeight: 1.4, fontFamily: "'Playfair Display', serif", margin: 0 }}>
+                {app.location}
+              </h2>
             </div>
           )}
 
-          <div className="flex flex-wrap gap-4 mt-3 text-sm text-[var(--text-muted)]">
-            <span className="flex items-center gap-1"><Calendar className="w-3.5 h-3.5" /> Applied: {formatDate(app.apn_date)}</span>
-            {app.dec_date && <span className="flex items-center gap-1"><Scale className="w-3.5 h-3.5" /> Decided: {formatDate(app.dec_date)}</span>}
-            {app.app_type && <span className="flex items-center gap-1">Type: {app.app_type}</span>}
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', marginTop: '0.6rem', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+              <Calendar style={{ width: '0.875rem', height: '0.875rem' }} /> Applied: {formatDate(app.apn_date)}
+            </span>
+            {app.dec_date && (
+              <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                <Scale style={{ width: '0.875rem', height: '0.875rem' }} /> Decided: {formatDate(app.dec_date)}
+              </span>
+            )}
+            {app.app_type && (
+              <span>Type: {app.app_type}</span>
+            )}
           </div>
         </div>
 
@@ -171,25 +279,25 @@ export default function ApplicationPage() {
           <div className="detail-section fade-in" style={{ animationDelay: '60ms' }}>
             <h3>APPLICANT</h3>
             {app.applicant_name && (
-              <p className="text-base font-semibold">{app.applicant_name}</p>
+              <p style={{ fontSize: '0.95rem', fontWeight: 600, margin: '0 0 0.5rem' }}>{app.applicant_name}</p>
             )}
             {app.company && (
-              <div className="mt-3 p-3 bg-[var(--warm-white)] rounded-lg">
-                <div className="flex items-center gap-2 mb-2">
-                  <Building2 className="w-4 h-4 text-[var(--teal)]" />
-                  <span className="font-semibold">{app.company.company_name}</span>
+              <div style={{ padding: '0.75rem', background: 'var(--warm-white)', borderRadius: '8px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                  <Building2 style={{ width: '1rem', height: '1rem', color: 'var(--teal)' }} />
+                  <span style={{ fontWeight: 600 }}>{app.company.company_name}</span>
                 </div>
-                <div className="grid grid-cols-2 gap-2 text-sm text-[var(--text-secondary)]">
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.35rem', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
                   <span>CRO: {app.company.cro_number}</span>
                   {app.company.company_status && <span>Status: {app.company.company_status}</span>}
                   {app.company.incorporation_date && <span>Registered: {formatDate(app.company.incorporation_date)}</span>}
                   {app.company.company_type && <span>Type: {app.company.company_type}</span>}
                 </div>
                 {app.company.registered_address && (
-                  <p className="text-sm text-[var(--text-muted)] mt-2">📍 {app.company.registered_address}</p>
+                  <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.5rem' }}>📍 {app.company.registered_address}</p>
                 )}
                 {app.company.directors && app.company.directors.length > 0 && (
-                  <p className="text-sm text-[var(--text-muted)] mt-1">
+                  <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
                     Directors: {app.company.directors.join(', ')}
                   </p>
                 )}
@@ -202,56 +310,83 @@ export default function ApplicationPage() {
         <div className="detail-section fade-in" style={{ animationDelay: '120ms' }}>
           <h3>DEVELOPMENT DESCRIPTION</h3>
           {app.dev_category && (
-            <div className="flex items-center gap-2 mb-3">
-              <span className="category-tag text-sm">
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem', flexWrap: 'wrap' }}>
+              <span className="category-tag" style={{ fontSize: '0.8rem' }}>
                 {CATEGORY_LABELS[app.dev_category] || app.dev_category}
               </span>
               {app.dev_subcategory && (
-                <span className="text-sm text-[var(--text-muted)]">› {app.dev_subcategory}</span>
+                <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>› {app.dev_subcategory}</span>
               )}
               {app.classification_confidence && (
-                <span className="text-xs text-[var(--text-muted)]">
+                <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
                   ({(app.classification_confidence * 100).toFixed(0)}% confidence)
                 </span>
               )}
             </div>
           )}
-          <p className="text-sm leading-relaxed text-[var(--text-secondary)]">
-            {app.long_proposal || app.proposal || 'No description available'}
-          </p>
+          <div>
+            {formatProposal(app.long_proposal || app.proposal || 'No description available')}
+          </div>
         </div>
+
+        {/* Key Facts — show NPAD fields if available */}
+        {(app.area_of_site || app.num_residential_units || app.floor_area) && (
+          <div className="detail-section fade-in" style={{ animationDelay: '150ms' }}>
+            <h3>KEY FACTS</h3>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '0.75rem' }}>
+              {app.area_of_site && (
+                <div style={{ background: 'var(--warm-white)', padding: '0.75rem', borderRadius: '8px' }}>
+                  <div style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--teal)' }}>{app.area_of_site.toFixed(2)}</div>
+                  <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Site Area (ha)</div>
+                </div>
+              )}
+              {app.num_residential_units && (
+                <div style={{ background: 'var(--warm-white)', padding: '0.75rem', borderRadius: '8px' }}>
+                  <div style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--teal)' }}>{app.num_residential_units}</div>
+                  <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Residential Units</div>
+                </div>
+              )}
+              {app.floor_area && (
+                <div style={{ background: 'var(--warm-white)', padding: '0.75rem', borderRadius: '8px' }}>
+                  <div style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--teal)' }}>{app.floor_area.toLocaleString()} m²</div>
+                  <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Floor Area</div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Timeline */}
         <div className="detail-section fade-in" style={{ animationDelay: '180ms' }}>
           <h3>TIMELINE</h3>
-          <div className="space-y-0">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
             <div className="timeline-item">
               <div className={`timeline-dot ${app.apn_date ? '' : 'inactive'}`} />
               <div>
-                <div className="text-sm font-medium">Submitted</div>
-                <div className="text-xs text-[var(--text-muted)]">{formatDate(app.apn_date)}</div>
+                <div style={{ fontSize: '0.875rem', fontWeight: 500 }}>Submitted</div>
+                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{formatDate(app.apn_date)}</div>
               </div>
             </div>
             <div className="timeline-item">
               <div className={`timeline-dot ${app.rgn_date ? '' : 'inactive'}`} />
               <div>
-                <div className="text-sm font-medium">Registered</div>
-                <div className="text-xs text-[var(--text-muted)]">{formatDate(app.rgn_date)}</div>
+                <div style={{ fontSize: '0.875rem', fontWeight: 500 }}>Registered</div>
+                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{formatDate(app.rgn_date)}</div>
               </div>
             </div>
             <div className="timeline-item">
               <div className={`timeline-dot ${app.dec_date ? '' : 'inactive'}`} />
               <div>
-                <div className="text-sm font-medium">Decided</div>
-                <div className="text-xs text-[var(--text-muted)]">{formatDate(app.dec_date)}</div>
+                <div style={{ fontSize: '0.875rem', fontWeight: 500 }}>Decided</div>
+                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{formatDate(app.dec_date)}</div>
               </div>
             </div>
             {app.final_grant_date && (
               <div className="timeline-item">
                 <div className="timeline-dot" />
                 <div>
-                  <div className="text-sm font-medium">Final Grant</div>
-                  <div className="text-xs text-[var(--text-muted)]">{formatDate(app.final_grant_date)}</div>
+                  <div style={{ fontSize: '0.875rem', fontWeight: 500 }}>Final Grant</div>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{formatDate(app.final_grant_date)}</div>
                 </div>
               </div>
             )}
@@ -262,19 +397,19 @@ export default function ApplicationPage() {
         {app.appeals.length > 0 && (
           <div className="detail-section fade-in" style={{ animationDelay: '240ms' }}>
             <h3>APPEALS ({app.appeals.length})</h3>
-            <div className="space-y-3">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
               {app.appeals.map(appeal => (
-                <div key={appeal.id} className="p-3 bg-[var(--warm-white)] rounded-lg">
-                  <div className="flex justify-between items-start text-sm">
-                    <span className="font-medium">{appeal.appeal_ref || 'Appeal'}</span>
+                <div key={appeal.id} style={{ padding: '0.75rem', background: 'var(--warm-white)', borderRadius: '8px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', fontSize: '0.875rem' }}>
+                    <span style={{ fontWeight: 500 }}>{appeal.appeal_ref || 'Appeal'}</span>
                     {appeal.appeal_decision && (
                       <span className={`decision-chip ${appeal.appeal_decision.includes('Grant') ? 'decision-granted' : 'decision-refused'}`}>
                         {appeal.appeal_decision}
                       </span>
                     )}
                   </div>
-                  {appeal.appellant && <p className="text-xs text-[var(--text-muted)] mt-1">By: {appeal.appellant}</p>}
-                  <div className="flex gap-3 mt-1 text-xs text-[var(--text-muted)]">
+                  {appeal.appellant && <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>By: {appeal.appellant}</p>}
+                  <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.25rem', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
                     <span>Filed: {formatDate(appeal.appeal_date)}</span>
                     {appeal.appeal_dec_date && <span>Decided: {formatDate(appeal.appeal_dec_date)}</span>}
                   </div>
@@ -288,16 +423,20 @@ export default function ApplicationPage() {
         {app.further_info.length > 0 && (
           <div className="detail-section fade-in" style={{ animationDelay: '300ms' }}>
             <h3>FURTHER INFORMATION ({app.further_info.length})</h3>
-            <div className="space-y-2">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
               {app.further_info.map(fi => (
-                <div key={fi.id} className="flex justify-between items-center p-2 bg-[var(--warm-white)] rounded-lg text-sm">
+                <div key={fi.id} style={{
+                  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                  padding: '0.5rem 0.75rem', background: 'var(--warm-white)', borderRadius: '8px',
+                  fontSize: '0.875rem',
+                }}>
                   <div>
-                    <span className="font-medium">{fi.fi_type || 'Request'}</span>
-                    <span className="text-[var(--text-muted)] ml-2">{formatDate(fi.fi_date)}</span>
+                    <span style={{ fontWeight: 500 }}>{fi.fi_type || 'Request'}</span>
+                    <span style={{ color: 'var(--text-muted)', marginLeft: '0.5rem' }}>{formatDate(fi.fi_date)}</span>
                   </div>
                   {fi.fi_response_date && (
-                    <span className="text-xs text-green-600">
-                      <CheckCircle className="w-3 h-3 inline mr-1" />
+                    <span style={{ fontSize: '0.75rem', color: '#16a34a', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                      <CheckCircle style={{ width: '0.75rem', height: '0.75rem' }} />
                       Response: {formatDate(fi.fi_response_date)}
                     </span>
                   )}
@@ -311,24 +450,24 @@ export default function ApplicationPage() {
         <div className="detail-section fade-in" style={{ animationDelay: '360ms' }}>
           <h3>DOCUMENTS {app.documents.length > 0 && `(${app.documents.length} files)`}</h3>
           {app.documents.length > 0 ? (
-            <div className="space-y-1">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
               {app.documents.map(doc => (
                 <div key={doc.id} className="doc-item">
-                  <div className="flex items-center flex-1 min-w-0">
+                  <div style={{ display: 'flex', alignItems: 'center', flex: 1, minWidth: 0 }}>
                     <span className="doc-icon">{getDocIcon(doc.doc_name)}</span>
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium truncate">{doc.doc_name}</p>
-                      {doc.doc_type && <p className="text-xs text-[var(--text-muted)]">{doc.doc_type}</p>}
+                    <div style={{ minWidth: 0 }}>
+                      <p style={{ fontSize: '0.875rem', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', margin: 0 }}>{doc.doc_name}</p>
+                      {doc.doc_type && <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', margin: 0 }}>{doc.doc_type}</p>}
                     </div>
                   </div>
-                  <div className="flex items-center gap-3 ml-3">
-                    <span className="text-xs text-[var(--text-muted)]">{formatFileSize(doc.file_size_bytes)}</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginLeft: '0.75rem' }}>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{formatFileSize(doc.file_size_bytes)}</span>
                     {doc.direct_url ? (
                       <a
                         href={doc.direct_url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-[var(--teal)] text-sm font-medium hover:underline no-underline flex items-center gap-1"
+                        style={{ color: 'var(--teal)', fontSize: '0.8rem', fontWeight: 500, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '0.25rem' }}
                       >
                         ↓ Open
                       </a>
@@ -337,9 +476,9 @@ export default function ApplicationPage() {
                         href={doc.portal_url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-[var(--teal)] text-sm font-medium hover:underline no-underline flex items-center gap-1"
+                        style={{ color: 'var(--teal)', fontSize: '0.8rem', fontWeight: 500, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '0.25rem' }}
                       >
-                        <ExternalLink className="w-3 h-3" /> Portal
+                        <ExternalLink style={{ width: '0.75rem', height: '0.75rem' }} /> Portal
                       </a>
                     ) : null}
                   </div>
@@ -347,16 +486,17 @@ export default function ApplicationPage() {
               ))}
             </div>
           ) : (
-            <div className="text-center py-6">
-              <FileText className="w-8 h-8 text-[var(--border)] mx-auto mb-2" />
-              <p className="text-sm text-[var(--text-muted)]">Document metadata not yet scraped</p>
+            <div style={{ textAlign: 'center', padding: '1.5rem 0' }}>
+              <FileText style={{ width: '2rem', height: '2rem', color: 'var(--border)', margin: '0 auto 0.5rem' }} />
+              <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', margin: '0 0 0.75rem' }}>Document metadata not yet scraped</p>
               <a
                 href={getPortalDocumentUrl(app.reg_ref, app.year)}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="btn-primary mt-3 inline-flex text-sm no-underline"
+                className="btn-primary"
+                style={{ display: 'inline-flex', fontSize: '0.8rem', textDecoration: 'none' }}
               >
-                <ExternalLink className="w-4 h-4" />
+                <ExternalLink style={{ width: '1rem', height: '1rem' }} />
                 View Documents on Portal →
               </a>
             </div>
@@ -365,10 +505,10 @@ export default function ApplicationPage() {
       </div>
 
       {/* Footer */}
-      <footer className="border-t border-[var(--border)] py-8 mt-12">
-        <div className="max-w-7xl mx-auto px-4 text-center text-xs text-[var(--text-muted)]">
-          <p>PlanSearch — Dublin Planning Intelligence Platform</p>
-          <p className="mt-1">Data: Dublin City Council Open Data (CC BY 4.0)</p>
+      <footer style={{ borderTop: '1px solid var(--border)', padding: '2rem 0', marginTop: '2rem' }}>
+        <div style={{ maxWidth: '80rem', margin: '0 auto', padding: '0 1rem', textAlign: 'center', fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+          <p style={{ margin: 0 }}>PlanSearch — National Planning Intelligence Platform</p>
+          <p style={{ margin: '0.25rem 0 0' }}>Data: NPAD (National Planning Application Database) &amp; BCMS Open Data (CC BY 4.0)</p>
         </div>
       </footer>
     </main>

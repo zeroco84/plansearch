@@ -96,6 +96,10 @@ export interface ApplicationDetail {
   classification_confidence: number | null;
   applicant_name: string | null;
   cro_number: string | null;
+  planning_authority: string | null;
+  area_of_site: number | null;
+  num_residential_units: number | null;
+  floor_area: number | null;
   lat: number | null;
   lng: number | null;
   portal_url: string | null;
