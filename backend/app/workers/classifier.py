@@ -2,7 +2,7 @@
 
 Classifies planning applications into 14 development categories
 using Claude Haiku with asyncio.Semaphore-controlled parallelism.
-50 concurrent requests — fast as Claude allows without overwhelming memory.
+20 concurrent requests with exponential backoff on rate limits.
 Reads API key from encrypted admin_config.
 """
 
@@ -23,7 +23,7 @@ from app.utils.crypto import decrypt_value
 logger = logging.getLogger(__name__)
 settings = get_settings()
 
-CONCURRENT_REQUESTS = 50
+CONCURRENT_REQUESTS = 20
 COMMIT_EVERY = 500
 
 CLASSIFICATION_PROMPT = """You are classifying Irish planning applications.
@@ -82,46 +82,63 @@ async def get_claude_api_key(db: AsyncSession) -> Optional[str]:
 
 
 async def call_claude_classify(
-    client: AsyncAnthropic, proposal: str, location: str = "", reg_ref: str = ""
+    client: AsyncAnthropic, proposal: str, location: str = "", reg_ref: str = "",
+    retries: int = 3,
 ) -> Optional[dict]:
-    """Call Claude Haiku to classify a single planning proposal."""
-    try:
-        prompt = CLASSIFICATION_PROMPT.format(
-            reg_ref=reg_ref or "",
-            location=location or "Not specified",
-            proposal=(proposal or "Not specified")[:500],
-        )
+    """Call Claude Haiku to classify a single planning proposal.
 
-        message = await client.messages.create(
-            model=settings.classifier_model,
-            max_tokens=100,
-            messages=[{"role": "user", "content": prompt}],
-        )
+    Retries up to `retries` times with exponential backoff on 429 rate limits.
+    """
+    for attempt in range(retries):
+        try:
+            prompt = CLASSIFICATION_PROMPT.format(
+                reg_ref=reg_ref or "",
+                location=location or "Not specified",
+                proposal=(proposal or "Not specified")[:500],
+            )
 
-        response_text = message.content[0].text.strip()
+            message = await client.messages.create(
+                model=settings.classifier_model,
+                max_tokens=100,
+                messages=[{"role": "user", "content": prompt}],
+            )
 
-        # Handle markdown code fences
-        if response_text.startswith("```"):
-            response_text = response_text.split("```")[1].lstrip("json").strip()
+            response_text = message.content[0].text.strip()
 
-        result = json.loads(response_text)
+            # Handle markdown code fences
+            if response_text.startswith("```"):
+                response_text = response_text.split("```")[1].lstrip("json").strip()
 
-        category = result.get("category", "other")
-        if category not in CATEGORY_LABELS:
-            category = "other"
+            result = json.loads(response_text)
 
-        return {
-            "category": category,
-            "subcategory": result.get("subcategory", ""),
-            "confidence": min(1.0, max(0.0, float(result.get("confidence", 0.5)))),
-        }
+            category = result.get("category", "other")
+            if category not in CATEGORY_LABELS:
+                category = "other"
 
-    except json.JSONDecodeError:
-        logger.error(f"Invalid JSON response for {reg_ref}")
-        return None
-    except Exception as e:
-        logger.error(f"Classification error for {reg_ref}: {e}")
-        return None
+            return {
+                "category": category,
+                "subcategory": result.get("subcategory", ""),
+                "confidence": min(1.0, max(0.0, float(result.get("confidence", 0.5)))),
+            }
+
+        except json.JSONDecodeError:
+            logger.error(f"Invalid JSON response for {reg_ref}")
+            return None
+        except Exception as e:
+            error_str = str(e)
+            if "429" in error_str or "rate_limit" in error_str:
+                wait = 2 ** attempt  # 1s, 2s, 4s
+                logger.warning(
+                    f"Rate limited on {reg_ref}, waiting {wait}s "
+                    f"(retry {attempt + 1}/{retries})"
+                )
+                await asyncio.sleep(wait)
+                continue
+            logger.error(f"Classification error for {reg_ref}: {e}")
+            return None
+
+    logger.error(f"All {retries} retries exhausted for {reg_ref}")
+    return None
 
 
 async def classify_all(
@@ -131,7 +148,7 @@ async def classify_all(
 ) -> dict:
     """Classify all unclassified applications concurrently.
 
-    Uses asyncio.Semaphore to control parallelism at 50 concurrent requests.
+    Uses asyncio.Semaphore to control parallelism at 20 concurrent requests.
     Updates the shared progress dict for the live admin UI counter.
     """
     # Get Claude API key
