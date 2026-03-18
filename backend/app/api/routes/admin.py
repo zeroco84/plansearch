@@ -464,6 +464,34 @@ async def classify_status(
     )
 
 
+@router.post("/admin/classify/reclassify-keyword")
+async def reclassify_by_keyword(
+    keyword: str,
+    target_category: str,
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_db),
+    _token: str = Depends(verify_admin_token),
+):
+    """Bulk reclassify records whose proposal contains a keyword.
+
+    Example: keyword="student accommodation", target_category="student_accommodation"
+    """
+    from app.workers.classifier import reclassify_keyword
+
+    valid_categories = {
+        "residential_new_build", "residential_extension", "residential_conversion",
+        "hotel_accommodation", "student_accommodation", "commercial_retail",
+        "commercial_office", "industrial_warehouse", "data_centre", "mixed_use",
+        "protected_structure", "telecommunications", "renewable_energy", "signage",
+        "change_of_use", "demolition", "other",
+    }
+    if target_category not in valid_categories:
+        raise HTTPException(status_code=400, detail=f"Invalid category: {target_category}")
+
+    background_tasks.add_task(reclassify_keyword, db, keyword, target_category)
+    return {"status": "triggered", "keyword": keyword, "target_category": target_category}
+
+
 # ── Scraper Controls ────────────────────────────────────────────────────
 
 @router.post("/admin/scrape/trigger")

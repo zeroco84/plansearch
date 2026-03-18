@@ -35,9 +35,10 @@ Query: "{query}"
 
 Available dev_categories:
 residential_new_build, residential_extension, residential_conversion,
-hotel_accommodation, commercial_retail, commercial_office, industrial_warehouse,
-mixed_use, protected_structure, telecommunications, renewable_energy, signage,
-change_of_use, demolition, student_accommodation, other
+hotel_accommodation, student_accommodation, commercial_retail,
+commercial_office, industrial_warehouse, data_centre, mixed_use,
+protected_structure, telecommunications, renewable_energy, signage,
+change_of_use, demolition, other
 
 Available planning authorities (use exact spelling):
 Dublin City Council, Fingal County Council, South Dublin County Council,
@@ -63,7 +64,7 @@ Respond ONLY with JSON:
 Examples:
 "student accommodation galway" -> {{"dev_category": "student_accommodation", "planning_authorities": ["Galway City Council", "Galway County Council"], "keywords": null, "decision": null}}
 "refused hotels cork" -> {{"dev_category": "hotel_accommodation", "planning_authorities": ["Cork City Council", "Cork County Council"], "keywords": null, "decision": "refused"}}
-"data centre kildare" -> {{"dev_category": "industrial_warehouse", "planning_authorities": ["Kildare County Council"], "keywords": "data centre", "decision": null}}
+"data centre kildare" -> {{"dev_category": "data_centre", "planning_authorities": ["Kildare County Council"], "keywords": null, "decision": null}}
 "apartments near DART" -> {{"dev_category": "residential_new_build", "planning_authorities": [], "keywords": "DART", "decision": null}}
 "protected structure Dublin 4" -> {{"dev_category": "protected_structure", "planning_authorities": ["Dublin City Council"], "keywords": "Dublin 4", "decision": null}}
 "wind farm donegal" -> {{"dev_category": "renewable_energy", "planning_authorities": ["Donegal County Council"], "keywords": "wind farm", "decision": null}}
@@ -174,10 +175,10 @@ async def parse_search_intent(query: str, db: AsyncSession) -> dict:
             # Validate dev_category
             valid_categories = {
                 "residential_new_build", "residential_extension", "residential_conversion",
-                "hotel_accommodation", "commercial_retail", "commercial_office",
-                "industrial_warehouse", "mixed_use", "protected_structure",
-                "telecommunications", "renewable_energy", "signage",
-                "change_of_use", "demolition", "student_accommodation", "other",
+                "hotel_accommodation", "student_accommodation", "commercial_retail",
+                "commercial_office", "industrial_warehouse", "data_centre", "mixed_use",
+                "protected_structure", "telecommunications", "renewable_energy", "signage",
+                "change_of_use", "demolition", "other",
             }
             if intent.get("dev_category") and intent["dev_category"] not in valid_categories:
                 intent["dev_category"] = None
@@ -351,7 +352,11 @@ async def search_applications(
     count_result = await db.execute(count_query)
     total = count_result.scalar() or 0
 
-    data_query = select(Application).where(where_clause)
+    data_query = select(
+        Application,
+        ST_Y(Application.location_point).label("lat"),
+        ST_X(Application.location_point).label("lng"),
+    ).where(where_clause)
 
     # Add relevance score for keyword searches
     if keywords.strip():
@@ -386,28 +391,17 @@ async def search_applications(
     # Transform results
     results = []
     for row in rows:
-        if keywords.strip() and len(row) > 1:
-            app, relevance = row
+        # Row structure: (Application, lat, lng) or (Application, lat, lng, relevance)
+        if isinstance(row, tuple):
+            app = row[0]
+            lat_val = row[1]
+            lng_val = row[2]
+            relevance = row[3] if len(row) > 3 else None
         else:
-            app = row[0] if isinstance(row, tuple) else row
+            app = row
+            lat_val = None
+            lng_val = None
             relevance = None
-
-        lat_val = None
-        lng_val = None
-        if app.location_point is not None:
-            try:
-                coord_result = await db.execute(
-                    select(
-                        ST_Y(Application.location_point).label("lat"),
-                        ST_X(Application.location_point).label("lng"),
-                    ).where(Application.id == app.id)
-                )
-                coords = coord_result.first()
-                if coords:
-                    lat_val = coords.lat
-                    lng_val = coords.lng
-            except Exception:
-                pass
 
         results.append(
             ApplicationSummary(

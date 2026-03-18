@@ -1,6 +1,6 @@
 """PlanSearch — Concurrent Claude AI Classification Worker.
 
-Classifies planning applications into 14 development categories
+Classifies planning applications into development categories
 using Claude Haiku with asyncio.Semaphore-controlled parallelism.
 20 concurrent requests with exponential backoff on rate limits.
 Reads API key from encrypted admin_config.
@@ -31,13 +31,19 @@ Given the description and location below, classify into exactly one category.
 
 CATEGORIES:
 residential_new_build | residential_extension | residential_conversion |
-hotel_accommodation | commercial_retail | commercial_office |
-industrial_warehouse | mixed_use | protected_structure |
-telecommunications | renewable_energy | signage | change_of_use |
-demolition | other
+hotel_accommodation | student_accommodation | commercial_retail |
+commercial_office | industrial_warehouse | data_centre | mixed_use |
+protected_structure | telecommunications | renewable_energy | signage |
+change_of_use | demolition | other
 
-Also provide a subcategory (e.g. "apartment block", "house extension",
-"data centre") and confidence score 0.0–1.0.
+Notes:
+- student_accommodation: purpose-built student accommodation (PBSA), student beds, student housing
+- data_centre: data centres, server facilities, colocation facilities
+- hotel_accommodation: hotels, hostels, apart-hotels, guesthouses (NOT student accommodation)
+- industrial_warehouse: warehouses, factories, logistics (NOT data centres)
+
+Also provide a subcategory (e.g. "apartment block", "PBSA",
+"data centre", "house extension") and confidence score 0.0–1.0.
 
 REF: {reg_ref}
 LOCATION: {location}
@@ -51,9 +57,11 @@ CATEGORY_LABELS = {
     "residential_extension": "Extension / Renovation",
     "residential_conversion": "Residential Conversion",
     "hotel_accommodation": "Hotel & Accommodation",
+    "student_accommodation": "Student Accommodation",
     "commercial_retail": "Retail & Food",
     "commercial_office": "Office",
     "industrial_warehouse": "Industrial / Warehouse",
+    "data_centre": "Data Centre",
     "mixed_use": "Mixed Use",
     "protected_structure": "Protected Structure",
     "telecommunications": "Telecoms",
@@ -282,3 +290,43 @@ async def run_classification_batch(
 ) -> dict:
     """Run a batch of AI classifications (legacy sequential mode)."""
     return await classify_all(db, limit=batch_size)
+
+
+async def reclassify_keyword(
+    db: AsyncSession, keyword: str, target_category: str
+) -> dict:
+    """Directly reclassify records whose proposal contains keyword.
+
+    Useful for bulk corrections, e.g. reclassifying all "student accommodation"
+    proposals from hotel_accommodation to student_accommodation.
+    """
+    result = await db.execute(
+        text("""
+            SELECT id FROM applications
+            WHERE proposal ILIKE :pattern
+              AND (dev_category IS NULL OR dev_category != :target)
+        """),
+        {"pattern": f"%{keyword}%", "target": target_category},
+    )
+    rows = result.fetchall()
+
+    logger.info(
+        f"Reclassifying {len(rows)} records matching '{keyword}' to {target_category}"
+    )
+
+    for i, row in enumerate(rows):
+        await db.execute(
+            text("""
+                UPDATE applications
+                SET dev_category = :category, classified_at = NOW()
+                WHERE id = :id
+            """),
+            {"category": target_category, "id": row.id},
+        )
+        if (i + 1) % 500 == 0:
+            await db.commit()
+            logger.info(f"Committed {i + 1}/{len(rows)} reclassifications...")
+
+    await db.commit()
+    logger.info(f"Reclassified {len(rows)} records to {target_category}")
+    return {"reclassified": len(rows), "keyword": keyword, "target_category": target_category}

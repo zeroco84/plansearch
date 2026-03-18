@@ -288,6 +288,7 @@ CATEGORY_TO_BENCHMARK = {
     "commercial_office": "offices_shell_and_core",
     "commercial_retail": "retail_fitout",
     "industrial_warehouse": "industrial_warehouse_shell",
+    "data_centre": "data_centre",
     "mixed_use": "apartments_overall_range",
     "student_accommodation": "student_accommodation",
     "change_of_use": "offices_fitout_medium",
