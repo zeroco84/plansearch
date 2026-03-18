@@ -9,8 +9,11 @@ import logging
 from typing import Optional
 
 import httpx
-from sqlalchemy import text
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.models import AdminConfig
+from app.utils.crypto import decrypt_value
 
 logger = logging.getLogger(__name__)
 
@@ -28,14 +31,31 @@ def looks_like_company(name: str) -> bool:
     return any(ind in name_lower for ind in COMPANY_INDICATORS)
 
 
-async def lookup_company(name: str) -> Optional[dict]:
+async def get_cro_api_key(db: AsyncSession) -> Optional[str]:
+    """Retrieve the CRO API key from encrypted admin_config."""
+    result = await db.execute(
+        select(AdminConfig).where(AdminConfig.key == "cro_api_key")
+    )
+    config = result.scalar_one_or_none()
+    if not config:
+        logger.warning("CRO API key not found in admin_config")
+        return None
+    if config.encrypted:
+        return decrypt_value(config.value)
+    return config.value
+
+
+async def lookup_company(name: str, api_key: str) -> Optional[dict]:
     """Search CRO API for a company by name."""
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
             r = await client.get(
                 f"{CRO_API_BASE}/company/search",
                 params={"company_name": name, "max_results": 1},
-                headers={"Accept": "application/json"},
+                headers={
+                    "Accept": "application/json",
+                    "Authorization": f"Bearer {api_key}",
+                },
             )
             if r.status_code != 200:
                 return None
@@ -52,6 +72,10 @@ async def run_cro_enrichment(db: AsyncSession, limit: int = 500) -> dict:
     """Enrich applicant data with CRO company information."""
     logger.info("Starting CRO enrichment...")
     stats = {"processed": 0, "enriched": 0, "not_found": 0, "errors": 0}
+
+    api_key = await get_cro_api_key(db)
+    if not api_key:
+        return {"error": "CRO API key not configured. Set it via the admin UI."}
 
     result = await db.execute(
         text("""
@@ -80,7 +104,7 @@ async def run_cro_enrichment(db: AsyncSession, limit: int = 500) -> dict:
             continue
 
         try:
-            company = await lookup_company(row.applicant_name)
+            company = await lookup_company(row.applicant_name, api_key)
             if company:
                 await db.execute(
                     text("""
