@@ -167,8 +167,8 @@ async def extract_benchmarks_from_pdf(
                     "content-type": "application/json",
                 },
                 json={
-                    "model": "claude-sonnet-4-20250514",
-                    "max_tokens": 4096,
+                    "model": "claude-opus-4-6",
+                    "max_tokens": 8192,
                     "messages": [
                         {
                             "role": "user",
