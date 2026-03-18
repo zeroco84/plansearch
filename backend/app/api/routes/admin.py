@@ -498,20 +498,26 @@ async def repair_bad_values(
     _token: str = Depends(verify_admin_token),
     db: AsyncSession = Depends(get_db),
 ):
-    """Reconcile floor_area and units against description text for all records.
+    """Reconcile floor_area from proposal text and clear bad value estimates.
 
-    1. Null implausibly high values immediately (est_value_high > €5bn)
-    2. Kick off background task to reconcile floor_area from descriptions
+    Immediate:
+    1. Null est_value where est_value_high > €2bn
+    2. Null est_value where floor_area > 100,000 and no units
+
+    Background:
+    3. Re-extract floor_area from proposal text for all records
     """
     from sqlalchemy import text as sql_text
 
-    # Immediate: null obviously broken value estimates
+    # Clear estimates where floor_area > 100k (likely corrupted NPAD)
     r1 = await db.execute(sql_text("""
         UPDATE applications
         SET est_value_low = NULL, est_value_high = NULL,
             est_value_basis = NULL, est_value_type = NULL,
             est_value_confidence = NULL, value_estimated_at = NULL
-        WHERE est_value_high > 5000000000
+        WHERE est_value_high IS NOT NULL
+          AND (floor_area > 100000 OR est_value_high > 2000000000)
+          AND (num_residential_units IS NULL OR num_residential_units = 0)
     """))
     await db.commit()
 
@@ -519,49 +525,53 @@ async def repair_bad_values(
     background_tasks.add_task(_run_floor_area_reconciliation, db)
 
     return {
-        "implausible_values_nulled": r1.rowcount,
-        "reconciliation": "triggered in background",
+        "cleared_bad_estimates": r1.rowcount,
+        "reconciliation": "triggered in background — will extract floor areas from proposal text",
     }
 
 
 async def _run_floor_area_reconciliation(db: AsyncSession):
-    """Background task: reconcile floor_area for all records with proposals."""
+    """Background task: extract floor_area from proposal text for all records.
+
+    Uses description-first approach: the proposal is legally required to be
+    accurate under Planning and Development Act 2000. NPAD FloorArea is only
+    used as fallback with strict sanity checks.
+    """
     from sqlalchemy import text as sql_text
-    from app.workers.floor_area_extractor import reconcile_floor_area, reconcile_units
+    from app.workers.floor_area_extractor import (
+        get_reliable_floor_area,
+        get_reliable_units,
+    )
 
-    logger.info("Starting floor area reconciliation...")
+    logger.info("Starting floor area reconciliation from proposal text...")
 
-    # Fetch records that have either:
-    # - A floor_area value to verify
-    # - A proposal with enough text to extract from (even if floor_area is NULL)
+    # Fetch all records with proposals — we want to extract area even
+    # when floor_area is currently NULL (gathering correct data)
     result = await db.execute(sql_text("""
         SELECT id, floor_area, num_residential_units, proposal
         FROM applications
         WHERE proposal IS NOT NULL
           AND length(proposal) > 20
-          AND (
-            floor_area IS NOT NULL
-            OR num_residential_units IS NOT NULL
-            OR est_value_high IS NOT NULL
-          )
         ORDER BY id
     """))
     rows = result.fetchall()
-    logger.info(f"Reconciling {len(rows)} records...")
+    logger.info(f"Processing {len(rows)} records for floor area extraction...")
 
     fixed_area = 0
     fixed_units = 0
     cleared_values = 0
 
     for i, row in enumerate(rows):
-        new_area = reconcile_floor_area(row.floor_area, row.proposal)
-        new_units = reconcile_units(row.num_residential_units, row.proposal)
+        new_area = get_reliable_floor_area(row.floor_area, row.proposal)
+        new_units = get_reliable_units(
+            row.num_residential_units, row.proposal
+        )
 
         area_changed = (new_area != row.floor_area)
         units_changed = (new_units != row.num_residential_units)
 
         if area_changed or units_changed:
-            # Clear value estimates so they get recalculated with corrected data
+            # Update floor_area/units and clear stale value estimates
             await db.execute(sql_text("""
                 UPDATE applications
                 SET floor_area = :area,
@@ -578,7 +588,7 @@ async def _run_floor_area_reconciliation(db: AsyncSession):
                 fixed_units += 1
             cleared_values += 1
 
-        if (i + 1) % 1000 == 0:
+        if (i + 1) % 5000 == 0:
             await db.commit()
             logger.info(
                 f"Reconciled {i + 1}/{len(rows)} — "
@@ -587,9 +597,9 @@ async def _run_floor_area_reconciliation(db: AsyncSession):
 
     await db.commit()
     logger.info(
-        f"Reconciliation complete. "
+        f"Reconciliation complete. Processed {len(rows)} records. "
         f"Fixed area: {fixed_area}, fixed units: {fixed_units}, "
-        f"cleared estimates: {cleared_values}"
+        f"cleared estimates for re-calculation: {cleared_values}"
     )
 
 

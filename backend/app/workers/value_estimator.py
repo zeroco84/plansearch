@@ -340,7 +340,6 @@ def _calc_estimate(
     # Floor area based calculation
     elif (
         floor_area and floor_area > 0
-        and floor_area < 500_000  # Cap: 500k m² — anything larger is bad data
         and benchmark.get("cost_per_sqm_low")
         and benchmark.get("cost_per_sqm_high")
     ):
@@ -359,11 +358,11 @@ def _calc_estimate(
     if high < 10_000:
         return None
 
-    # Sanity check — ignore implausibly large values
-    # (Largest Irish planning application ever was ~€3bn)
-    if high > 5_000_000_000:  # €5bn cap
+    # Hard cap — no single planning application construction cost
+    # should exceed €2bn (largest Irish scheme ever was ~€1.5bn)
+    if high > 2_000_000_000:
         logger.warning(
-            f"Value estimate too high (€{high:,.0f}), likely bad floor_area data. Skipping."
+            f"Value estimate €{high:,.0f} exceeds €2bn cap. Skipping."
         )
         return None
 
@@ -384,8 +383,14 @@ async def run_benchmark_estimation(
     """Run benchmark-based value estimation for classified applications.
 
     Uses the cost_benchmarks table (Mitchell McDermott InfoCards) — no AI needed.
+    Floor area is extracted from proposal text (legally accurate under
+    Planning & Development Act 2000) with NPAD FloorArea as fallback only.
     """
     from sqlalchemy import text as sql_text
+    from app.workers.floor_area_extractor import (
+        get_reliable_floor_area,
+        get_reliable_units,
+    )
 
     logger.info("Starting benchmark value estimation...")
     stats = {"processed": 0, "estimated": 0, "no_data": 0, "errors": 0}
@@ -393,14 +398,14 @@ async def run_benchmark_estimation(
     result = await db.execute(
         sql_text("""
             SELECT id, reg_ref, dev_category, floor_area,
-                   num_residential_units
+                   num_residential_units, proposal
             FROM applications
             WHERE dev_category IS NOT NULL
               AND est_value_high IS NULL
               AND (
-                (floor_area IS NOT NULL AND floor_area > 0)
-                OR (num_residential_units IS NOT NULL
+                (num_residential_units IS NOT NULL
                     AND num_residential_units > 0)
+                OR proposal IS NOT NULL
               )
             ORDER BY apn_date DESC NULLS LAST
             LIMIT :limit
@@ -426,10 +431,18 @@ async def run_benchmark_estimation(
                 stats["processed"] += 1
                 continue
 
+            # Extract reliable floor area: description-first, NPAD fallback
+            reliable_area = get_reliable_floor_area(
+                row.floor_area, row.proposal
+            )
+            reliable_units = get_reliable_units(
+                row.num_residential_units, row.proposal
+            )
+
             est = _calc_estimate(
                 benchmark,
-                row.floor_area,
-                row.num_residential_units,
+                reliable_area,
+                reliable_units,
             )
 
             if est:
