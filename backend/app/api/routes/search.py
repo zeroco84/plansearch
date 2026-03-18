@@ -389,19 +389,16 @@ async def search_applications(
     rows = result.all()
 
     # Transform results
+    has_relevance = bool(keywords.strip())
     results = []
     for row in rows:
-        # Row structure: (Application, lat, lng) or (Application, lat, lng, relevance)
-        if isinstance(row, tuple):
-            app = row[0]
-            lat_val = row[1]
-            lng_val = row[2]
-            relevance = row[3] if len(row) > 3 else None
-        else:
-            app = row
-            lat_val = None
-            lng_val = None
-            relevance = None
+        # Row is always a tuple from multi-column select:
+        #   Without keywords: (Application, lat, lng)
+        #   With keywords:    (Application, lat, lng, relevance)
+        app = row[0]
+        lat_val = row[1]
+        lng_val = row[2]
+        relevance = row[3] if has_relevance and len(row) > 3 else None
 
         results.append(
             ApplicationSummary(
