@@ -37,6 +37,12 @@ export interface SearchResponse {
   total_pages: number;
   query_time_ms: number | null;
   inferred_location: string | null;
+  intent: {
+    dev_category: string | null;
+    planning_authorities: string[];
+    keywords: string | null;
+    decision: string | null;
+  } | null;
 }
 
 export interface AppealDetail {

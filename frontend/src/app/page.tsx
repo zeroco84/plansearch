@@ -213,12 +213,27 @@ export default function Home() {
             <kbd style={{ position: 'absolute', right: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.2)', fontSize: '0.7rem', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '4px', padding: '2px 6px' }}>/</kbd>
           </div>
           {results && query && (
-            <p style={{ textAlign: 'center', color: 'rgba(255,255,255,0.3)', fontSize: '0.75rem', marginTop: '0.75rem' }}>
-              {results.total.toLocaleString()} results
-              {results.query_time_ms && <span style={{ marginLeft: '0.5rem', opacity: 0.6 }}>{results.query_time_ms.toFixed(0)}ms</span>}
+            <p style={{ textAlign: 'center', color: 'rgba(255,255,255,0.3)', fontSize: '0.75rem', marginTop: '0.75rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+              <span>{results.total.toLocaleString()} results</span>
+              {results.query_time_ms && <span style={{ opacity: 0.6 }}>{results.query_time_ms.toFixed(0)}ms</span>}
+              {results.intent?.dev_category && (
+                <span style={{ color: 'rgba(29,158,117,0.8)', background: 'rgba(29,158,117,0.1)', padding: '1px 8px', borderRadius: '10px', fontSize: '0.7rem' }}>
+                  🏗️ {results.intent.dev_category.replace(/_/g, ' ')}
+                </span>
+              )}
               {results.inferred_location && (
-                <span style={{ marginLeft: '0.5rem', color: 'rgba(29,158,117,0.6)' }}>
-                  📍 Showing results in {results.inferred_location}
+                <span style={{ color: 'rgba(29,158,117,0.8)', background: 'rgba(29,158,117,0.1)', padding: '1px 8px', borderRadius: '10px', fontSize: '0.7rem' }}>
+                  📍 {results.inferred_location}
+                </span>
+              )}
+              {results.intent?.decision && (
+                <span style={{ color: 'rgba(29,158,117,0.8)', background: 'rgba(29,158,117,0.1)', padding: '1px 8px', borderRadius: '10px', fontSize: '0.7rem' }}>
+                  {results.intent.decision}
+                </span>
+              )}
+              {results.intent?.keywords && (
+                <span style={{ opacity: 0.5, fontSize: '0.65rem' }}>
+                  keywords: &ldquo;{results.intent.keywords}&rdquo;
                 </span>
               )}
             </p>

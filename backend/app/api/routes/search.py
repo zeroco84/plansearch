@@ -1,29 +1,76 @@
 """PlanSearch — Search API endpoint.
 
-GET /api/search — single optimised PostgreSQL query combining:
-  - tsvector full-text search
-  - trigram fuzzy matching
-  - PostGIS spatial filtering
-  - faceted filters (category, decision, year, etc.)
-  - Location-aware query parsing (auto-detects Irish counties/cities)
+GET /api/search — AI-powered intent parsing + structured database query.
+  - Claude Haiku extracts dev_category, location, decision from natural language
+  - Category and authority filters applied as exact database conditions
+  - Full-text search only used for remaining keywords
+  - Composable with manual advanced filter overrides
 """
 
+import json
+import logging
 import time
 from typing import Optional, List
+
+import httpx
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy import func, text, select, and_, or_, case, literal_column
 from sqlalchemy.ext.asyncio import AsyncSession
 from geoalchemy2.functions import ST_DWithin, ST_SetSRID, ST_MakePoint, ST_X, ST_Y
 
 from app.database import get_db
-from app.models import Application
+from app.models import Application, AdminConfig
 from app.schemas import SearchResponse, ApplicationSummary
+from app.utils.crypto import decrypt_value
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
-# ── Location-aware query parsing ─────────────────────────────────────────
+# ── AI Intent Parsing ────────────────────────────────────────────────────
 
+INTENT_PROMPT = """Extract search intent from this Irish planning search query.
+
+Query: "{query}"
+
+Available dev_categories:
+residential_new_build, residential_extension, residential_conversion,
+hotel_accommodation, commercial_retail, commercial_office, industrial_warehouse,
+mixed_use, protected_structure, telecommunications, renewable_energy, signage,
+change_of_use, demolition, student_accommodation, other
+
+Available planning authorities (use exact spelling):
+Dublin City Council, Fingal County Council, South Dublin County Council,
+Dún Laoghaire-Rathdown County Council, Cork City Council, Cork County Council,
+Galway City Council, Galway County Council, Kerry County Council,
+Kildare County Council, Kilkenny County Council, Limerick City & County Council,
+Meath County Council, Wicklow County Council, Wexford County Council,
+Donegal County Council, Tipperary County Council, Waterford City and County Council,
+Clare County Council, Mayo County Council, Sligo County Council,
+Leitrim County Council, Roscommon County Council, Longford County Council,
+Westmeath County Council, Offaly County Council, Laois County Council,
+Louth County Council, Cavan County Council, Monaghan County Council,
+Carlow County Council
+
+Respond ONLY with JSON:
+{{
+  "dev_category": "exact category from list above, or null",
+  "planning_authorities": ["exact name(s) from list above"] or [],
+  "keywords": "any remaining search terms not captured above, or null",
+  "decision": "granted or refused or pending, or null"
+}}
+
+Examples:
+"student accommodation galway" -> {{"dev_category": "student_accommodation", "planning_authorities": ["Galway City Council", "Galway County Council"], "keywords": null, "decision": null}}
+"refused hotels cork" -> {{"dev_category": "hotel_accommodation", "planning_authorities": ["Cork City Council", "Cork County Council"], "keywords": null, "decision": "refused"}}
+"data centre kildare" -> {{"dev_category": "industrial_warehouse", "planning_authorities": ["Kildare County Council"], "keywords": "data centre", "decision": null}}
+"apartments near DART" -> {{"dev_category": "residential_new_build", "planning_authorities": [], "keywords": "DART", "decision": null}}
+"protected structure Dublin 4" -> {{"dev_category": "protected_structure", "planning_authorities": ["Dublin City Council"], "keywords": "Dublin 4", "decision": null}}
+"wind farm donegal" -> {{"dev_category": "renewable_energy", "planning_authorities": ["Donegal County Council"], "keywords": "wind farm", "decision": null}}
+"office block dublin" -> {{"dev_category": "commercial_office", "planning_authorities": ["Dublin City Council", "Fingal County Council", "South Dublin County Council", "Dún Laoghaire-Rathdown County Council"], "keywords": null, "decision": null}}"""
+
+
+# Fallback location parsing (used when AI is unavailable)
 LOCATION_AUTHORITY_MAP = {
     "dublin": [
         "Dublin City Council",
@@ -63,37 +110,111 @@ LOCATION_AUTHORITY_MAP = {
 }
 
 
-def parse_location_from_query(query: str) -> tuple[str, list[str]]:
-    """Extract location intent from a search query.
+async def _get_claude_api_key(db: AsyncSession) -> Optional[str]:
+    """Retrieve the Claude API key from encrypted admin_config."""
+    try:
+        result = await db.execute(
+            select(AdminConfig).where(AdminConfig.key == "claude_api_key")
+        )
+        config = result.scalar_one_or_none()
+        if not config:
+            return None
+        if config.encrypted:
+            return decrypt_value(config.value)
+        return config.value
+    except Exception:
+        return None
 
-    Returns (cleaned_query, list_of_matching_authorities).
 
-    Examples:
-    - "apartments dublin" → ("apartments", [DCC, Fingal, DLRCC, SDCC])
-    - "hotel cork" → ("hotel", [Cork City, Cork County])
-    - "data centre kildare" → ("data centre", [Kildare CC])
-    - "protected structure" → ("protected structure", [])
-    """
+async def parse_search_intent(query: str, db: AsyncSession) -> dict:
+    """Use Claude Haiku to extract structured search intent from natural language."""
+    fallback = {
+        "dev_category": None,
+        "planning_authorities": [],
+        "keywords": query,
+        "decision": None,
+    }
+
+    # Skip AI for very short queries
+    if len(query.strip()) < 3:
+        return fallback
+
+    api_key = await _get_claude_api_key(db)
+    if not api_key:
+        logger.warning("No Claude API key — falling back to text search")
+        return _fallback_parse(query)
+
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            resp = await client.post(
+                "https://api.anthropic.com/v1/messages",
+                headers={
+                    "x-api-key": api_key,
+                    "anthropic-version": "2023-06-01",
+                    "content-type": "application/json",
+                },
+                json={
+                    "model": "claude-haiku-4-5-20251001",
+                    "max_tokens": 200,
+                    "messages": [
+                        {"role": "user", "content": INTENT_PROMPT.format(query=query)}
+                    ],
+                },
+            )
+            resp.raise_for_status()
+            data = resp.json()
+            raw_text = data["content"][0]["text"].strip()
+
+            # Strip markdown code fences if present
+            if raw_text.startswith("```"):
+                raw_text = raw_text.split("```")[1].lstrip("json").strip()
+
+            intent = json.loads(raw_text)
+
+            # Validate dev_category
+            valid_categories = {
+                "residential_new_build", "residential_extension", "residential_conversion",
+                "hotel_accommodation", "commercial_retail", "commercial_office",
+                "industrial_warehouse", "mixed_use", "protected_structure",
+                "telecommunications", "renewable_energy", "signage",
+                "change_of_use", "demolition", "student_accommodation", "other",
+            }
+            if intent.get("dev_category") and intent["dev_category"] not in valid_categories:
+                intent["dev_category"] = None
+
+            # Validate decision
+            if intent.get("decision") and intent["decision"] not in ("granted", "refused", "pending"):
+                intent["decision"] = None
+
+            return intent
+
+    except Exception as e:
+        logger.warning(f"AI intent parsing failed for '{query}': {e}")
+        return _fallback_parse(query)
+
+
+def _fallback_parse(query: str) -> dict:
+    """Simple text-based location extraction as fallback when AI unavailable."""
     query_lower = query.lower().strip()
-    matched_authorities: list[str] = []
-    cleaned_query = query_lower
-
-    # Sort by length descending so "dun laoghaire" matches before "dublin", etc.
     for location_term, authorities in sorted(
-        LOCATION_AUTHORITY_MAP.items(),
-        key=lambda x: len(x[0]),
-        reverse=True,
+        LOCATION_AUTHORITY_MAP.items(), key=lambda x: len(x[0]), reverse=True
     ):
         if location_term in query_lower:
-            matched_authorities = authorities
-            # Remove the location term from the search query
-            cleaned_query = query_lower.replace(location_term, "").strip()
-            # Clean up any double spaces left behind
-            while "  " in cleaned_query:
-                cleaned_query = cleaned_query.replace("  ", " ")
-            break
-
-    return cleaned_query, matched_authorities
+            cleaned = query_lower.replace(location_term, "").strip()
+            while "  " in cleaned:
+                cleaned = cleaned.replace("  ", " ")
+            return {
+                "dev_category": None,
+                "planning_authorities": authorities,
+                "keywords": cleaned if cleaned else None,
+                "decision": None,
+            }
+    return {
+        "dev_category": None,
+        "planning_authorities": [],
+        "keywords": query,
+        "decision": None,
+    }
 
 
 # ── Search endpoint ──────────────────────────────────────────────────────
@@ -101,8 +222,8 @@ def parse_location_from_query(query: str) -> tuple[str, list[str]]:
 @router.get("/search", response_model=SearchResponse)
 async def search_applications(
     q: Optional[str] = Query(None, description="Full-text search query"),
-    category: Optional[str] = Query(None, description="Development category filter"),
-    decision: Optional[str] = Query(None, description="Decision status filter"),
+    category: Optional[str] = Query(None, description="Development category filter (overrides AI)"),
+    decision: Optional[str] = Query(None, description="Decision status filter (overrides AI)"),
     applicant: Optional[str] = Query(None, description="Fuzzy applicant name search"),
     location: Optional[str] = Query(None, description="Fuzzy location search"),
     year_from: Optional[int] = Query(None, description="Minimum year"),
@@ -110,7 +231,7 @@ async def search_applications(
     lat: Optional[float] = Query(None, description="Latitude for proximity search"),
     lng: Optional[float] = Query(None, description="Longitude for proximity search"),
     radius_m: Optional[int] = Query(None, description="Radius in metres for proximity search"),
-    authority: Optional[str] = Query(None, description="Planning authority filter (national)"),
+    authority: Optional[str] = Query(None, description="Planning authority filter (overrides AI)"),
     lifecycle_stage: Optional[str] = Query(None, description="Lifecycle stage filter"),
     value_min: Optional[int] = Query(None, description="Minimum estimated value (€)"),
     value_max: Optional[int] = Query(None, description="Maximum estimated value (€)"),
@@ -120,56 +241,81 @@ async def search_applications(
     page_size: int = Query(25, ge=1, le=100, description="Results per page"),
     db: AsyncSession = Depends(get_db),
 ):
-    """Search planning applications with full-text, fuzzy, spatial, and faceted filtering.
+    """Search planning applications with AI intent parsing + structured filters.
 
-    All parameters are optional and fully composable.
-    Location terms in the query (e.g. "apartments dublin") are automatically
-    detected and applied as planning_authority filters.
+    When a free-text query is provided, it is sent to Claude Haiku to extract:
+    - dev_category (exact DB filter)
+    - planning_authorities (location filter)
+    - decision (status filter)
+    - keywords (remaining full-text search terms)
+
+    Manual filter params override the AI-inferred values.
     """
     start_time = time.time()
 
-    # ── Parse location intent from free text query ──
+    # ── Parse intent from free text query ──
     text_query = q or ""
-    inferred_authorities: list[str] = []
+    intent = None
     inferred_location: Optional[str] = None
 
-    if q and not authority:
-        text_query, inferred_authorities = parse_location_from_query(q)
-        if inferred_authorities:
-            # Derive a friendly label: "Dublin", "Cork", etc.
+    # Only use AI intent when there's a text query and no manual overrides
+    if text_query.strip():
+        intent = await parse_search_intent(text_query, db)
+
+        # Derive friendly location label
+        authorities = intent.get("planning_authorities", [])
+        if authorities:
             inferred_location = (
-                inferred_authorities[0]
-                .split(" County")[0]
-                .split(" City")[0]
+                authorities[0].split(" County")[0].split(" City")[0]
             )
 
-    # Build base query
+    # ── Build query conditions ──
     conditions = []
 
-    # Full-text search using plainto_tsquery (handles multi-word naturally)
-    if text_query:
-        ts_query = func.plainto_tsquery("english", text_query)
+    # Category filter — manual override takes precedence over AI
+    effective_category = category or (intent.get("dev_category") if intent else None)
+    if effective_category:
+        conditions.append(Application.dev_category == effective_category)
+
+    # Authority filter — manual override takes precedence
+    if authority:
+        conditions.append(Application.planning_authority == authority)
+    elif intent and intent.get("planning_authorities"):
+        conditions.append(
+            Application.planning_authority.in_(intent["planning_authorities"])
+        )
+
+    # Decision filter — manual override takes precedence
+    effective_decision = decision
+    if not effective_decision and intent and intent.get("decision"):
+        ai_decision = intent["decision"]
+        if ai_decision == "granted":
+            effective_decision = "GRANTED"
+        elif ai_decision == "refused":
+            effective_decision = "REFUSED"
+        elif ai_decision == "pending":
+            effective_decision = None  # handled below
+
+    if effective_decision:
+        conditions.append(Application.decision.ilike(f"%{effective_decision}%"))
+    elif intent and intent.get("decision") == "pending":
+        conditions.append(
+            or_(Application.decision.is_(None), Application.decision == "N/A")
+        )
+
+    # Full-text search — only on remaining keywords (not the whole query)
+    keywords = (intent.get("keywords") if intent else text_query) or ""
+    if keywords.strip():
+        ts_query = func.plainto_tsquery("english", keywords)
         conditions.append(Application.search_vector.op("@@")(ts_query))
 
-    # Category filter
-    if category:
-        conditions.append(Application.dev_category == category)
-
-    # Decision filter
-    if decision:
-        conditions.append(Application.decision.ilike(f"%{decision}%"))
-
-    # Fuzzy applicant search using trigram
+    # Fuzzy applicant search
     if applicant:
-        conditions.append(
-            Application.applicant_name.ilike(f"%{applicant}%")
-        )
+        conditions.append(Application.applicant_name.ilike(f"%{applicant}%"))
 
-    # Fuzzy location search using trigram
+    # Fuzzy location search
     if location:
-        conditions.append(
-            Application.location.ilike(f"%{location}%")
-        )
+        conditions.append(Application.location.ilike(f"%{location}%"))
 
     # Year range filter
     if year_from:
@@ -181,20 +327,7 @@ async def search_applications(
     if lat is not None and lng is not None and radius_m:
         point = ST_SetSRID(ST_MakePoint(lng, lat), 4326)
         conditions.append(
-            ST_DWithin(
-                Application.location_point,
-                point,
-                radius_m,
-                use_spheroid=True,
-            )
-        )
-
-    # Planning authority filter — explicit param OR inferred from query
-    if authority:
-        conditions.append(Application.planning_authority == authority)
-    elif inferred_authorities:
-        conditions.append(
-            Application.planning_authority.in_(inferred_authorities)
+            ST_DWithin(Application.location_point, point, radius_m, use_spheroid=True)
         )
 
     # Lifecycle stage filter
@@ -211,19 +344,18 @@ async def search_applications(
     if one_off_house is not None:
         conditions.append(Application.one_off_house == one_off_house)
 
-    # Build count query
+    # ── Execute queries ──
     where_clause = and_(*conditions) if conditions else text("1=1")
 
     count_query = select(func.count()).select_from(Application).where(where_clause)
     count_result = await db.execute(count_query)
     total = count_result.scalar() or 0
 
-    # Build data query with sorting
     data_query = select(Application).where(where_clause)
 
-    # Add relevance score for full-text queries
-    if text_query:
-        ts_query = func.plainto_tsquery("english", text_query)
+    # Add relevance score for keyword searches
+    if keywords.strip():
+        ts_query = func.plainto_tsquery("english", keywords)
         rank = func.ts_rank(Application.search_vector, ts_query)
         data_query = data_query.add_columns(rank.label("relevance_score"))
 
@@ -232,8 +364,8 @@ async def search_applications(
         data_query = data_query.order_by(Application.apn_date.desc().nullslast())
     elif sort == "date_asc":
         data_query = data_query.order_by(Application.apn_date.asc().nullsfirst())
-    elif sort == "relevance" and text_query:
-        ts_query = func.plainto_tsquery("english", text_query)
+    elif sort == "relevance" and keywords.strip():
+        ts_query = func.plainto_tsquery("english", keywords)
         data_query = data_query.order_by(
             func.ts_rank(Application.search_vector, ts_query).desc()
         )
@@ -254,7 +386,7 @@ async def search_applications(
     # Transform results
     results = []
     for row in rows:
-        if text_query and len(row) > 1:
+        if keywords.strip() and len(row) > 1:
             app, relevance = row
         else:
             app = row[0] if isinstance(row, tuple) else row
@@ -264,7 +396,6 @@ async def search_applications(
         lng_val = None
         if app.location_point is not None:
             try:
-                # Extract lat/lng from the geometry
                 coord_result = await db.execute(
                     select(
                         ST_Y(Application.location_point).label("lat"),
@@ -313,4 +444,5 @@ async def search_applications(
         total_pages=total_pages,
         query_time_ms=round(query_time_ms, 2),
         inferred_location=inferred_location,
+        intent=intent,
     )

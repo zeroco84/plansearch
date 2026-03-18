@@ -81,6 +81,7 @@ class SearchResponse(BaseModel):
     total_pages: int
     query_time_ms: Optional[float] = None
     inferred_location: Optional[str] = None
+    intent: Optional[dict] = None
 
 
 # ── Application Detail ──────────────────────────────────────────────────
