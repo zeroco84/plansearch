@@ -115,6 +115,7 @@ class Application(Base):
     location_point = Column(Geometry("POINT", srid=4326))
     itm_easting = Column(Float)
     itm_northing = Column(Float)
+    geocoded_at = Column(DateTime(timezone=True))
 
     # Full-text search
     search_vector = Column(TSVECTOR)

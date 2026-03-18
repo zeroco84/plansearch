@@ -296,6 +296,26 @@ export async function fetchApplicantScraperProgress(token: string) {
   });
 }
 
+export async function startGeocoder(token: string) {
+  return fetchApi('/api/admin/geocode/start', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+export async function stopGeocoder(token: string) {
+  return fetchApi('/api/admin/geocode/stop', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+export async function fetchGeocoderProgress(token: string) {
+  return fetchApi('/api/admin/geocode/progress', {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
 export async function triggerBenchmarkScrape(token: string) {
   return fetchApi('/api/admin/benchmarks/scrape', {
     method: 'POST',

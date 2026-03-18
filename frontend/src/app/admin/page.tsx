@@ -284,6 +284,21 @@ export default function AdminPage() {
             </div>
           </Link>
 
+          <Link href="/admin/geocoder" className="admin-card hover:border-[var(--teal)] transition-colors no-underline">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-green-50 rounded-lg flex items-center justify-center">
+                  <MapIcon className="w-5 h-5 text-green-500" />
+                </div>
+                <div>
+                  <h3 className="text-base font-semibold text-[var(--text-primary)]">Address Geocoder</h3>
+                  <p className="text-xs text-[var(--text-muted)]">OSM Nominatim — geocode addresses to map coordinates</p>
+                </div>
+              </div>
+              <ChevronRight className="w-4 h-4 text-[var(--text-muted)]" />
+            </div>
+          </Link>
+
           <Link href="/admin/keys" className="admin-card hover:border-[var(--teal)] transition-colors no-underline">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">

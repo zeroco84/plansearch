@@ -693,6 +693,46 @@ async def get_applicant_scraper_progress(
     return _sp
 
 
+# ── Geocoder ─────────────────────────────────────────────────────────────
+
+_geocoder_task = None
+
+@router.post("/admin/geocode/start")
+async def start_geocoder(
+    _token: str = Depends(verify_admin_token),
+):
+    """Start the continuous geocoder loop."""
+    global _geocoder_task
+    from app.workers.geocoder import run_geocoder_loop, geocoder_progress as _gp
+    if _gp["running"]:
+        return {"status": "already_running", "progress": _gp}
+    _geocoder_task = asyncio.create_task(run_geocoder_loop())
+    return {"status": "started"}
+
+
+@router.post("/admin/geocode/stop")
+async def stop_geocoder(
+    _token: str = Depends(verify_admin_token),
+):
+    """Stop the geocoder loop gracefully."""
+    global _geocoder_task
+    from app.workers.geocoder import geocoder_progress as _gp
+    _gp["running"] = False
+    if _geocoder_task:
+        _geocoder_task.cancel()
+        _geocoder_task = None
+    return {"status": "stopped"}
+
+
+@router.get("/admin/geocode/progress")
+async def get_geocoder_progress(
+    _token: str = Depends(verify_admin_token),
+):
+    """Get live geocoder progress."""
+    from app.workers.geocoder import geocoder_progress as _gp
+    return _gp
+
+
 # ── SSE Stream ──────────────────────────────────────────────────────────
 
 @router.get("/admin/stream")
