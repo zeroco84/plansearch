@@ -1,14 +1,11 @@
-"""PlanSearch — FastAPI Application Entry Point.
-
-National Planning Intelligence Platform API.
-"""
-
+import asyncio
 import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
 from app.database import engine, Base
@@ -23,6 +20,20 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 settings = get_settings()
+
+
+async def substack_refresh_loop():
+    """Refresh Substack posts every 6 hours."""
+    while True:
+        await asyncio.sleep(6 * 60 * 60)
+        try:
+            from app.workers.substack_ingest import ingest_substack_posts
+
+            async with AsyncSession(engine) as db:
+                await ingest_substack_posts(db)
+            logger.info("Substack posts refreshed")
+        except Exception as e:
+            logger.error(f"Substack refresh failed: {e}")
 
 
 @asynccontextmanager
@@ -61,6 +72,19 @@ async def lifespan(app: FastAPI):
                 BEFORE INSERT OR UPDATE ON applications
                 FOR EACH ROW EXECUTE FUNCTION update_search_vector()
         """))
+
+    # Initial Substack sync on startup
+    try:
+        from app.workers.substack_ingest import ingest_substack_posts
+
+        async with AsyncSession(engine) as db:
+            await ingest_substack_posts(db)
+        logger.info("Substack posts synced on startup")
+    except Exception as e:
+        logger.warning(f"Substack sync on startup failed: {e}")
+
+    # Background refresh loop
+    asyncio.create_task(substack_refresh_loop())
 
     logger.info(f"PlanSearch API v{settings.app_version} starting...")
     yield
