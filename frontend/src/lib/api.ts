@@ -269,8 +269,8 @@ export async function getSyncStatus(token: string) {
   });
 }
 
-export async function triggerClassification(token: string, batchSize: number = 100) {
-  return fetchApi(`/api/admin/classify/trigger?batch_size=${batchSize}`, {
+export async function triggerClassification(token: string) {
+  return fetchApi('/api/admin/classify/trigger', {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}` },
   });
@@ -278,6 +278,19 @@ export async function triggerClassification(token: string, batchSize: number = 1
 
 export async function getClassifyStatus(token: string) {
   return fetchApi('/api/admin/classify/status', {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+export async function fetchClassifyProgress(token: string) {
+  return fetchApi('/api/admin/classify/progress', {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+export async function stopClassify(token: string) {
+  return fetchApi('/api/admin/classify/stop', {
+    method: 'POST',
     headers: { Authorization: `Bearer ${token}` },
   });
 }

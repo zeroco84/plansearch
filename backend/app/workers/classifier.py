@@ -1,15 +1,19 @@
-"""PlanSearch — Claude AI Classification Worker.
+"""PlanSearch — Concurrent Claude AI Classification Worker.
 
 Classifies planning applications into 14 development categories
-using Claude Haiku. Reads API key from encrypted admin_config.
+using Claude Haiku with asyncio.Semaphore-controlled parallelism.
+50 concurrent requests — fast as Claude allows without overwhelming memory.
+Reads API key from encrypted admin_config.
 """
 
+import asyncio
 import json
 import logging
 from datetime import datetime
 from typing import Optional
 
-from sqlalchemy import select, update, func, and_
+from anthropic import AsyncAnthropic
+from sqlalchemy import select, text, func, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
@@ -19,7 +23,10 @@ from app.utils.crypto import decrypt_value
 logger = logging.getLogger(__name__)
 settings = get_settings()
 
-CLASSIFICATION_PROMPT = """You are classifying Dublin City Council planning applications.
+CONCURRENT_REQUESTS = 50
+COMMIT_EVERY = 500
+
+CLASSIFICATION_PROMPT = """You are classifying Irish planning applications.
 Given the description and location below, classify into exactly one category.
 
 CATEGORIES:
@@ -35,7 +42,6 @@ Also provide a subcategory (e.g. "apartment block", "house extension",
 REF: {reg_ref}
 LOCATION: {location}
 SHORT: {proposal}
-FULL: {long_proposal}
 
 Respond ONLY with valid JSON:
 {{"category": "...", "subcategory": "...", "confidence": 0.0}}"""
@@ -59,38 +65,6 @@ CATEGORY_LABELS = {
 }
 
 
-def build_classification_prompt(proposal: str, location: str = "", reg_ref: str = "") -> str:
-    """Build the classification prompt for a given proposal.
-
-    Returns the formatted prompt string.
-    """
-    return CLASSIFICATION_PROMPT.format(
-        reg_ref=reg_ref or "",
-        location=location or "Not specified",
-        proposal=proposal or "Not specified",
-        long_proposal=proposal or "Not specified",
-    )
-
-
-def parse_classification_response(response_text: str) -> Optional[dict]:
-    """Parse a classification JSON response.
-
-    Returns dict with category, subcategory, confidence or None on failure.
-    """
-    try:
-        result = json.loads(response_text)
-        category = result.get("category")
-        if not category or category not in CATEGORY_LABELS:
-            return None
-        return {
-            "category": category,
-            "subcategory": result.get("subcategory", ""),
-            "confidence": min(1.0, max(0.0, float(result.get("confidence", 0.5)))),
-        }
-    except (json.JSONDecodeError, ValueError, TypeError):
-        return None
-
-
 async def get_claude_api_key(db: AsyncSession) -> Optional[str]:
     """Retrieve the Claude API key from encrypted admin_config."""
     result = await db.execute(
@@ -107,41 +81,31 @@ async def get_claude_api_key(db: AsyncSession) -> Optional[str]:
     return config.value
 
 
-async def classify_application(
-    reg_ref: str,
-    location: str,
-    proposal: str,
-    long_proposal: str,
-    api_key: str,
+async def call_claude_classify(
+    client: AsyncAnthropic, proposal: str, location: str = "", reg_ref: str = ""
 ) -> Optional[dict]:
-    """Classify a single application using Claude API.
-
-    Returns dict with category, subcategory, confidence or None on failure.
-    """
+    """Call Claude Haiku to classify a single planning proposal."""
     try:
-        import anthropic
-
-        client = anthropic.Anthropic(api_key=api_key)
-
         prompt = CLASSIFICATION_PROMPT.format(
             reg_ref=reg_ref or "",
             location=location or "Not specified",
-            proposal=proposal or "Not specified",
-            long_proposal=long_proposal or "Not specified",
+            proposal=(proposal or "Not specified")[:500],
         )
 
-        message = client.messages.create(
+        message = await client.messages.create(
             model=settings.classifier_model,
-            max_tokens=200,
+            max_tokens=100,
             messages=[{"role": "user", "content": prompt}],
         )
 
         response_text = message.content[0].text.strip()
 
-        # Parse JSON response
+        # Handle markdown code fences
+        if response_text.startswith("```"):
+            response_text = response_text.split("```")[1].lstrip("json").strip()
+
         result = json.loads(response_text)
 
-        # Validate category
         category = result.get("category", "other")
         if category not in CATEGORY_LABELS:
             category = "other"
@@ -153,83 +117,151 @@ async def classify_application(
         }
 
     except json.JSONDecodeError:
-        logger.error(f"Invalid JSON response for {reg_ref}: {response_text}")
+        logger.error(f"Invalid JSON response for {reg_ref}")
         return None
     except Exception as e:
         logger.error(f"Classification error for {reg_ref}: {e}")
         return None
 
 
-async def run_classification_batch(
+async def classify_all(
     db: AsyncSession,
-    batch_size: int = 100,
+    progress: Optional[dict] = None,
+    limit: Optional[int] = None,
 ) -> dict:
-    """Run a batch of AI classifications.
+    """Classify all unclassified applications concurrently.
 
-    Args:
-        db: Database session
-        batch_size: Number of applications to classify
-
-    Returns:
-        Dictionary with classification statistics
+    Uses asyncio.Semaphore to control parallelism at 50 concurrent requests.
+    Updates the shared progress dict for the live admin UI counter.
     """
-    stats = {"classified": 0, "failed": 0, "skipped": 0}
-
     # Get Claude API key
     api_key = await get_claude_api_key(db)
     if not api_key:
+        if progress:
+            progress["running"] = False
         return {"error": "Claude API key not configured. Set it via the admin UI."}
 
-    # Get unclassified applications
+    # Fetch all unclassified records (just the columns we need)
     result = await db.execute(
-        select(Application)
+        select(
+            Application.id,
+            Application.reg_ref,
+            Application.proposal,
+            Application.location,
+        )
         .where(
             and_(
                 Application.dev_category.is_(None),
                 Application.proposal.isnot(None),
+                Application.proposal != "",
             )
         )
-        .order_by(Application.apn_date.desc().nullslast())
-        .limit(batch_size)
+        .order_by(Application.id)
+        .limit(limit or 999999)
     )
-    applications = result.scalars().all()
+    records = result.all()
 
-    logger.info(f"Classifying {len(applications)} applications")
+    total = len(records)
+    logger.info(
+        f"Classifying {total} unclassified records with "
+        f"{CONCURRENT_REQUESTS} concurrent requests"
+    )
 
-    for app in applications:
-        try:
-            result = await classify_application(
-                reg_ref=app.reg_ref,
-                location=app.location or "",
-                proposal=app.proposal or "",
-                long_proposal=app.long_proposal or "",
-                api_key=api_key,
-            )
+    if progress:
+        progress["total"] = total
 
-            if result:
-                await db.execute(
-                    update(Application)
-                    .where(Application.id == app.id)
-                    .values(
-                        dev_category=result["category"],
-                        dev_subcategory=result["subcategory"],
-                        classification_confidence=result["confidence"],
-                        classified_at=datetime.utcnow(),
-                    )
+    stats = {"classified": 0, "errors": 0, "total": total}
+    semaphore = asyncio.Semaphore(CONCURRENT_REQUESTS)
+    client = AsyncAnthropic(api_key=api_key)
+    lock = asyncio.Lock()
+
+    async def classify_one(record) -> bool:
+        async with semaphore:
+            # Check for stop signal
+            if progress and progress.get("stop_requested"):
+                return False
+
+            try:
+                result = await call_claude_classify(
+                    client,
+                    proposal=record.proposal or "",
+                    location=record.location or "",
+                    reg_ref=record.reg_ref or "",
                 )
-                stats["classified"] += 1
-            else:
-                stats["failed"] += 1
 
-            # Commit every 10
-            if (stats["classified"] + stats["failed"]) % 10 == 0:
-                await db.commit()
-                logger.info(f"Classified {stats['classified']}, failed {stats['failed']}")
+                if result:
+                    async with lock:
+                        await db.execute(text("SAVEPOINT classify_upsert"))
+                        try:
+                            await db.execute(
+                                text("""
+                                    UPDATE applications
+                                    SET dev_category = :category,
+                                        dev_subcategory = :subcategory,
+                                        classification_confidence = :confidence,
+                                        classified_at = NOW()
+                                    WHERE id = :id
+                                """),
+                                {
+                                    "category": result["category"],
+                                    "subcategory": result.get("subcategory", ""),
+                                    "confidence": result.get("confidence", 0.8),
+                                    "id": record.id,
+                                },
+                            )
+                            await db.execute(text("RELEASE SAVEPOINT classify_upsert"))
+                        except Exception as db_err:
+                            await db.execute(
+                                text("ROLLBACK TO SAVEPOINT classify_upsert")
+                            )
+                            logger.error(
+                                f"DB error for {record.reg_ref}: {db_err}"
+                            )
+                            stats["errors"] += 1
+                            if progress:
+                                progress["errors"] += 1
+                            return False
 
-        except Exception as e:
-            logger.error(f"Error classifying {app.reg_ref}: {e}")
-            stats["failed"] += 1
+                        stats["classified"] += 1
+                        if progress:
+                            progress["processed"] += 1
 
+                        # Commit periodically
+                        if stats["classified"] % COMMIT_EVERY == 0:
+                            await db.commit()
+                            logger.info(
+                                f"Classified {stats['classified']}/{total}..."
+                            )
+                    return True
+                else:
+                    stats["errors"] += 1
+                    if progress:
+                        progress["errors"] += 1
+                    return False
+
+            except Exception as e:
+                logger.error(f"Error classifying {record.reg_ref}: {e}")
+                stats["errors"] += 1
+                if progress:
+                    progress["errors"] += 1
+                return False
+
+    # Run all concurrently, controlled by semaphore
+    tasks = [classify_one(r) for r in records]
+    await asyncio.gather(*tasks)
     await db.commit()
-    logger.info(f"Classification batch complete: {stats}")
+
+    if progress:
+        progress["running"] = False
+        progress["stop_requested"] = False
+
+    logger.info(f"Classification complete: {stats}")
     return stats
+
+
+# Legacy function kept for backward compatibility
+async def run_classification_batch(
+    db: AsyncSession, batch_size: int = 100
+) -> dict:
+    """Run a batch of AI classifications (legacy sequential mode)."""
+    return await classify_all(db, limit=batch_size)

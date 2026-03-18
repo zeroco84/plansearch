@@ -339,30 +339,74 @@ async def sync_status(
 
 # ── Classify Controls ────────────────────────────────────────────────────
 
+# In-memory classify progress — updated by background task, read by polling
+classify_progress = {
+    "running": False,
+    "processed": 0,
+    "errors": 0,
+    "total": 0,
+    "started_at": None,
+    "stop_requested": False,
+}
+
+
+@router.get("/admin/classify/progress")
+async def get_classify_progress(
+    _token: str = Depends(verify_admin_token),
+):
+    """Get live classification progress — polled by the frontend every 3 seconds."""
+    return classify_progress
+
+
+@router.post("/admin/classify/stop")
+async def stop_classify(
+    _token: str = Depends(verify_admin_token),
+):
+    """Request a running classification to stop gracefully."""
+    if not classify_progress["running"]:
+        return {"status": "not_running"}
+    classify_progress["stop_requested"] = True
+    return {"status": "stop_requested"}
+
+
 @router.post("/admin/classify/trigger")
 async def trigger_classification(
-    batch_size: int = Query(100, ge=1, le=10000),
     _token: str = Depends(verify_admin_token),
-    db: AsyncSession = Depends(get_db),
 ):
-    """Trigger AI classification batch."""
-    from app.workers.classifier import run_classification_batch
+    """Trigger concurrent AI classification of all unclassified records."""
+    classify_progress.update({
+        "running": True,
+        "processed": 0,
+        "errors": 0,
+        "total": 0,
+        "started_at": datetime.utcnow().isoformat(),
+        "stop_requested": False,
+    })
 
-    asyncio.create_task(_run_classify_background(batch_size))
+    asyncio.create_task(_run_classify_background())
 
-    return {"message": f"Classification batch of {batch_size} triggered"}
+    return {
+        "status": "triggered",
+        "mode": "concurrent",
+        "concurrency": 50,
+    }
 
 
-async def _run_classify_background(batch_size: int):
-    """Run classifier in background."""
-    from app.workers.classifier import run_classification_batch
+async def _run_classify_background():
+    """Run concurrent classifier in background."""
+    from app.workers.classifier import classify_all
 
     async with async_session_factory() as db:
         try:
-            result = await run_classification_batch(db, batch_size)
-            _sse_events.append({"event": "classify_complete", "data": json.dumps(result)})
+            result = await classify_all(db, progress=classify_progress)
+            _sse_events.append(
+                {"event": "classify_complete", "data": json.dumps(result)}
+            )
         except Exception as e:
-            _sse_events.append({"event": "classify_error", "data": json.dumps({"error": str(e)})})
+            classify_progress["running"] = False
+            _sse_events.append(
+                {"event": "classify_error", "data": json.dumps({"error": str(e)})}
+            )
 
 
 @router.get("/admin/classify/status", response_model=ClassifyStatusResponse)
