@@ -340,6 +340,7 @@ def _calc_estimate(
     # Floor area based calculation
     elif (
         floor_area and floor_area > 0
+        and floor_area < 500_000  # Cap: 500k m² — anything larger is bad data
         and benchmark.get("cost_per_sqm_low")
         and benchmark.get("cost_per_sqm_high")
     ):
@@ -356,6 +357,14 @@ def _calc_estimate(
 
     # Sanity check — ignore implausibly small values
     if high < 10_000:
+        return None
+
+    # Sanity check — ignore implausibly large values
+    # (Largest Irish planning application ever was ~€3bn)
+    if high > 5_000_000_000:  # €5bn cap
+        logger.warning(
+            f"Value estimate too high (€{high:,.0f}), likely bad floor_area data. Skipping."
+        )
         return None
 
     return {

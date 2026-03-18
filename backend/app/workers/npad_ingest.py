@@ -118,6 +118,47 @@ def _safe_area_ha(val) -> Optional[float]:
         return None
 
 
+def _safe_floor_area(val) -> Optional[float]:
+    """Sanitise NPAD FloorArea.
+
+    NPAD FloorArea is nominally in m² but some records have values
+    10,000x too large (likely stored in cm² or corrupted).
+    Cap at 500,000 m² — the largest building in Ireland is ~100k m².
+    """
+    if val is None:
+        return None
+    try:
+        area = float(val)
+        if area <= 0:
+            return None
+        if area > 500_000:
+            logger.warning(f"FloorArea {area} exceeds 500k m² cap — rejecting as bad data")
+            return None
+        return area
+    except (ValueError, TypeError):
+        return None
+
+
+def _safe_units(val) -> Optional[int]:
+    """Sanitise NPAD NumResidentialUnits.
+
+    Cap at 10,000 — the largest residential scheme in Ireland
+    is ~3,000 units (Cherrywood).
+    """
+    if val is None:
+        return None
+    try:
+        units = int(float(val))
+        if units <= 0:
+            return None
+        if units > 10_000:
+            logger.warning(f"NumResidentialUnits {units} exceeds 10k cap — rejecting")
+            return None
+        return units
+    except (ValueError, TypeError):
+        return None
+
+
 async def fetch_npad_page(client: httpx.AsyncClient, offset: int) -> list:
     """Fetch one page of NPAD records."""
     params = {
@@ -177,8 +218,8 @@ async def upsert_npad_record(db: AsyncSession, attrs: dict) -> bool:
         "final_grant_date":     safe_date(attrs.get("GrantDate")),
         "app_type":             safe_str(attrs.get("ApplicationType")),
         "land_use_code":        safe_str(attrs.get("LandUseCode")),
-        "floor_area":           float(attrs["FloorArea"]) if attrs.get("FloorArea") else None,
-        "num_residential_units": int(attrs["NumResidentialUnits"]) if attrs.get("NumResidentialUnits") else None,
+        "floor_area":           _safe_floor_area(attrs.get("FloorArea")),
+        "num_residential_units": _safe_units(attrs.get("NumResidentialUnits")),
         "area_of_site":         _safe_area_ha(attrs.get("AreaofSite")),
         "one_off_house":        safe_str(attrs.get("OneOffHouse")) == "Y",
         "link_app_details":     safe_str(attrs.get("LinkAppDetails")),

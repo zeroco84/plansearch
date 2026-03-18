@@ -492,6 +492,58 @@ async def reclassify_by_keyword(
     return {"status": "triggered", "keyword": keyword, "target_category": target_category}
 
 
+@router.post("/admin/repair/bad-values")
+async def repair_bad_values(
+    _token: str = Depends(verify_admin_token),
+    db: AsyncSession = Depends(get_db),
+):
+    """Fix records with bad floor_area/unit data and null their value estimates.
+
+    - floor_area > 500,000 m² → null (bad NPAD data)
+    - num_residential_units > 10,000 → null
+    - Null est_value_* where est_value_high > €5bn
+    - Re-queue affected records for re-estimation
+    """
+    from sqlalchemy import text as sql_text
+
+    # Fix bad floor areas
+    r1 = await db.execute(sql_text("""
+        UPDATE applications
+        SET floor_area = NULL,
+            est_value_low = NULL, est_value_high = NULL,
+            est_value_basis = NULL, est_value_type = NULL,
+            est_value_confidence = NULL, value_estimated_at = NULL
+        WHERE floor_area > 500000
+    """))
+
+    # Fix bad unit counts
+    r2 = await db.execute(sql_text("""
+        UPDATE applications
+        SET num_residential_units = NULL,
+            est_value_low = NULL, est_value_high = NULL,
+            est_value_basis = NULL, est_value_type = NULL,
+            est_value_confidence = NULL, value_estimated_at = NULL
+        WHERE num_residential_units > 10000
+    """))
+
+    # Fix implausibly high values (even if floor_area was already OK)
+    r3 = await db.execute(sql_text("""
+        UPDATE applications
+        SET est_value_low = NULL, est_value_high = NULL,
+            est_value_basis = NULL, est_value_type = NULL,
+            est_value_confidence = NULL, value_estimated_at = NULL
+        WHERE est_value_high > 5000000000
+    """))
+
+    await db.commit()
+
+    return {
+        "bad_floor_areas_fixed": r1.rowcount,
+        "bad_units_fixed": r2.rowcount,
+        "implausible_values_nulled": r3.rowcount,
+    }
+
+
 # ── Scraper Controls ────────────────────────────────────────────────────
 
 @router.post("/admin/scrape/trigger")
