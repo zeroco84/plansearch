@@ -4,6 +4,7 @@ National Planning Application Database — covers 30/31 local authorities.
 ~362,000 applications, updated weekly, CC BY 4.0, no auth required.
 """
 
+import asyncio
 import logging
 from datetime import datetime
 from typing import Optional
@@ -266,7 +267,7 @@ async def run_npad_ingest_with_progress(
                     else:
                         progress["errors"] += 1
 
-                    if progress["processed"] % 500 == 0 and progress["processed"] > 0:
+                    if progress["processed"] % 100 == 0 and progress["processed"] > 0:
                         await db.commit()
                         logger.info(f"Committed {progress['processed']} records...")
 
@@ -277,6 +278,7 @@ async def run_npad_ingest_with_progress(
                     break
 
                 await db.commit()
+                await asyncio.sleep(0.2)  # breathe between pages
                 offset += PAGE_SIZE
 
                 if len(records) < PAGE_SIZE:
