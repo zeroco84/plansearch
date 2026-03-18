@@ -28,7 +28,8 @@ export default function SignificantPage() {
   const [valueMin, setValueMin] = useState(2_000_000);
   const [decision, setDecision] = useState('grant');
   const [category, setCategory] = useState('');
-  const [sort, setSort] = useState('value_desc');
+  const [lifecycle, setLifecycle] = useState('');
+  const [sort, setSort] = useState('date_desc');
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -38,6 +39,7 @@ export default function SignificantPage() {
         authority: authority || undefined,
         value_min: valueMin || undefined,
         category: category || undefined,
+        ...(lifecycle && { lifecycle_stage: lifecycle }),
         sort,
         page_size: 50,
         one_off_house: false,
@@ -48,7 +50,7 @@ export default function SignificantPage() {
     } finally {
       setLoading(false);
     }
-  }, [authority, valueMin, decision, category, sort]);
+  }, [authority, valueMin, decision, category, lifecycle, sort]);
 
   useEffect(() => {
     fetchData();
@@ -144,11 +146,20 @@ export default function SignificantPage() {
         </div>
 
         <div className="filter-group">
+          <label>Stage</label>
+          <select value={lifecycle} onChange={(e) => setLifecycle(e.target.value)}>
+            <option value="">All Stages</option>
+            <option value="under_construction">Under Construction</option>
+            <option value="complete">Complete</option>
+          </select>
+        </div>
+
+        <div className="filter-group">
           <label>Sort</label>
           <select value={sort} onChange={(e) => setSort(e.target.value)}>
+            <option value="date_desc">Newest First</option>
             <option value="value_desc">Highest Value</option>
-            <option value="significance">Most Significant</option>
-            <option value="date_desc">Most Recent</option>
+            <option value="date_asc">Oldest First</option>
           </select>
         </div>
       </section>
