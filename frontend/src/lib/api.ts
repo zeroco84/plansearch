@@ -107,6 +107,7 @@ export interface ApplicationDetail {
   cro_number: string | null;
   planning_authority: string | null;
   area_of_site: number | null;
+  site_area_ha: number | null;
   num_residential_units: number | null;
   floor_area: number | null;
   lat: number | null;

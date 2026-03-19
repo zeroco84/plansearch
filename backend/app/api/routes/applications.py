@@ -13,6 +13,7 @@ from geoalchemy2.functions import ST_X, ST_Y
 
 from app.database import get_db
 from app.models import Application, Appeal, FurtherInfo, Company, ApplicationCompany, ApplicationDocument
+from app.workers.floor_area_extractor import extract_site_area_from_proposal
 from app.schemas import ApplicationDetail, AppealDetail, FurtherInfoDetail, CompanyDetail, DocumentDetail, BcmsDetail
 from app.workers.summariser import get_or_create_summary
 
@@ -159,6 +160,7 @@ async def get_application(
         cro_number=app.cro_number,
         planning_authority=app.planning_authority,
         area_of_site=app.area_of_site,
+        site_area_ha=extract_site_area_from_proposal(app.proposal),
         num_residential_units=app.num_residential_units,
         floor_area=app.floor_area,
         lat=lat_val,

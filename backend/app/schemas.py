@@ -165,6 +165,7 @@ class ApplicationDetail(BaseModel):
     cro_number: Optional[str] = None
     planning_authority: Optional[str] = None
     area_of_site: Optional[float] = None
+    site_area_ha: Optional[float] = None  # Extracted from proposal, in hectares
     num_residential_units: Optional[int] = None
     floor_area: Optional[float] = None
     lat: Optional[float] = None

@@ -95,6 +95,68 @@ def extract_floor_area_from_proposal(proposal: str) -> Optional[float]:
     return max(areas)
 
 
+def extract_site_area_from_proposal(proposal: str) -> Optional[float]:
+    """Extract site area in hectares from planning proposal text.
+
+    Legally required to be accurate under Planning & Development Act 2000.
+    Returns area in hectares.
+    """
+    if not proposal:
+        return None
+
+    areas_ha: List[float] = []
+
+    # Hectare patterns — note: 'hectares' is h-e-c-t-a-r-e-s, NOT ha-ctares
+    _HA_PATTERNS = [
+        re.compile(r"c\.?\s*(\d[\d,\.]*)\s*(?:ha|hectares?)", re.IGNORECASE),
+        re.compile(r"(\d[\d,\.]*)\s*(?:ha|hectares?)(?:\s+site)?", re.IGNORECASE),
+        re.compile(r"site\s+(?:area\s+)?of\s+(\d[\d,\.]*)\s*(?:ha|hectares?)", re.IGNORECASE),
+        re.compile(r"(\d[\d,\.]*)\s*(?:ha|hectares?)\s+site", re.IGNORECASE),
+        re.compile(r"approx(?:imately|\.)\s+(\d[\d,\.]*)\s*(?:ha|hectares?)", re.IGNORECASE),
+    ]
+
+    # m² site patterns (convert to ha)
+    _SQM_SITE_PATTERNS = [
+        re.compile(r"site\s+(?:area\s+)?of\s+(\d[\d,\.]*)\s*(?:sq\.?\s*m|m²|sqm)", re.IGNORECASE),
+        re.compile(r"(\d[\d,\.]*)\s*(?:sq\.?\s*m|m²|sqm)\s+site", re.IGNORECASE),
+    ]
+
+    # Acre patterns (convert to ha)
+    _ACRE_PATTERNS = [
+        re.compile(r"(\d[\d,\.]*)\s*acres?", re.IGNORECASE),
+    ]
+
+    for pattern in _HA_PATTERNS:
+        for match in pattern.finditer(proposal):
+            try:
+                val = _parse_number(match.group(1))
+                if 0.001 <= val <= 500:
+                    areas_ha.append(val)
+            except (ValueError, IndexError):
+                pass
+
+    for pattern in _SQM_SITE_PATTERNS:
+        for match in pattern.finditer(proposal):
+            try:
+                val = _parse_number(match.group(1)) / 10_000
+                if 0.001 <= val <= 500:
+                    areas_ha.append(val)
+            except (ValueError, IndexError):
+                pass
+
+    for pattern in _ACRE_PATTERNS:
+        for match in pattern.finditer(proposal):
+            try:
+                val = _parse_number(match.group(1)) * 0.404686
+                if 0.001 <= val <= 500:
+                    areas_ha.append(val)
+            except (ValueError, IndexError):
+                pass
+
+    # Return first match — site area is typically stated once
+    return areas_ha[0] if areas_ha else None
+
+
 def extract_unit_count_from_proposal(proposal: str) -> Optional[int]:
     """Extract residential unit count from proposal text."""
     if not proposal:
