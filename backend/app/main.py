@@ -12,10 +12,16 @@ from app.config import get_settings
 from app.database import engine, Base
 from app.api.routes import search, applications, map, stats, admin, export, docs, digest
 from app.api.routes import insights, advertising
-from app.api.routes import auth, billing, alerts
 from app import models  # noqa: F401 — ensure all models are registered
 from app.models import CostBenchmark, CommencementNotice, FSCApplication  # noqa: F401
-from app.models import User, AlertProfile, AlertDelivery, AlertMatch  # noqa: F401
+# Phase 4 — optional, depends on python-jose, passlib, stripe, boto3
+try:
+    from app.api.routes import auth, billing, alerts
+    from app.models import User, AlertProfile, AlertDelivery, AlertMatch  # noqa: F401
+    PHASE4_AVAILABLE = True
+except ImportError as e:
+    PHASE4_AVAILABLE = False
+    logging.getLogger(__name__).warning(f"Phase 4 (alerts) not available: {e}")
 
 logging.basicConfig(
     level=logging.INFO,
@@ -111,8 +117,9 @@ async def lifespan(app: FastAPI):
     # Background refresh loop
     asyncio.create_task(substack_refresh_loop())
 
-    # Alert engine scheduler
-    asyncio.create_task(alert_engine_loop())
+    # Alert engine scheduler (Phase 4 — only if dependencies available)
+    if PHASE4_AVAILABLE:
+        asyncio.create_task(alert_engine_loop())
 
     logger.info(f"PlanSearch API v{settings.app_version} starting...")
     yield
@@ -146,10 +153,11 @@ app.include_router(docs.router, prefix="/api", tags=["Documents"])
 app.include_router(digest.router, prefix="/api", tags=["Digest"])
 # Phase 3
 app.include_router(insights.router, tags=["Insights"])
-# Phase 4 — User accounts & alerts
-app.include_router(auth.router, prefix="/api", tags=["Auth"])
-app.include_router(billing.router, prefix="/api", tags=["Billing"])
-app.include_router(alerts.router, prefix="/api", tags=["Alerts"])
+# Phase 4 — User accounts & alerts (only if deps installed)
+if PHASE4_AVAILABLE:
+    app.include_router(auth.router, prefix="/api", tags=["Auth"])
+    app.include_router(billing.router, prefix="/api", tags=["Billing"])
+    app.include_router(alerts.router, prefix="/api", tags=["Alerts"])
 app.include_router(advertising.router, tags=["Advertising"])
 
 
