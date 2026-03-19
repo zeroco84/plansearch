@@ -51,7 +51,13 @@ Clare County Council, Mayo County Council, Sligo County Council,
 Leitrim County Council, Roscommon County Council, Longford County Council,
 Westmeath County Council, Offaly County Council, Laois County Council,
 Louth County Council, Cavan County Council, Monaghan County Council,
-Carlow County Council
+Carlow County Council,
+Antrim and Newtownabbey, Ards and North Down,
+Armagh City Banbridge and Craigavon, Belfast City Council,
+Causeway Coast and Glens, Derry City and Strabane,
+Fermanagh and Omagh, Lisburn and Castlereagh,
+Mid and East Antrim, Mid Ulster, Newry Mourne and Down,
+Department for Infrastructure (NI)
 
 Respond ONLY with JSON:
 {{
@@ -108,6 +114,47 @@ LOCATION_AUTHORITY_MAP = {
     "dun laoghaire": ["Dún Laoghaire-Rathdown County Council"],
     "dlr": ["Dún Laoghaire-Rathdown County Council"],
     "south dublin": ["South Dublin County Council"],
+    # ── Northern Ireland ──
+    "belfast": ["Belfast City Council"],
+    "antrim": ["Antrim and Newtownabbey"],
+    "newtownabbey": ["Antrim and Newtownabbey"],
+    "derry": ["Derry City and Strabane"],
+    "londonderry": ["Derry City and Strabane"],
+    "armagh": ["Armagh City, Banbridge and Craigavon"],
+    "banbridge": ["Armagh City, Banbridge and Craigavon"],
+    "craigavon": ["Armagh City, Banbridge and Craigavon"],
+    "newry": ["Newry, Mourne and Down"],
+    "lisburn": ["Lisburn and Castlereagh"],
+    "fermanagh": ["Fermanagh and Omagh"],
+    "enniskillen": ["Fermanagh and Omagh"],
+    "omagh": ["Fermanagh and Omagh"],
+    "strabane": ["Derry City and Strabane"],
+    "coleraine": ["Causeway Coast and Glens"],
+    "causeway": ["Causeway Coast and Glens"],
+    "mid ulster": ["Mid Ulster"],
+    "cookstown": ["Mid Ulster"],
+    "dungannon": ["Mid Ulster"],
+    "ballymena": ["Mid and East Antrim"],
+    "larne": ["Mid and East Antrim"],
+    "downpatrick": ["Newry, Mourne and Down"],
+    "ards": ["Ards and North Down"],
+    "bangor": ["Ards and North Down"],
+    "northern ireland": [
+        "Antrim and Newtownabbey", "Ards and North Down",
+        "Armagh City, Banbridge and Craigavon", "Belfast City Council",
+        "Causeway Coast and Glens", "Derry City and Strabane",
+        "Fermanagh and Omagh", "Lisburn and Castlereagh",
+        "Mid and East Antrim", "Mid Ulster", "Newry, Mourne and Down",
+    ],
+    "ni": [
+        "Antrim and Newtownabbey", "Ards and North Down",
+        "Armagh City, Banbridge and Craigavon", "Belfast City Council",
+        "Causeway Coast and Glens", "Derry City and Strabane",
+        "Fermanagh and Omagh", "Lisburn and Castlereagh",
+        "Mid and East Antrim", "Mid Ulster", "Newry, Mourne and Down",
+    ],
+    # ── Cork County (separate from Cork City which is in NPAD) ──
+    "cork county": ["Cork County Council"],
 }
 
 
@@ -237,6 +284,7 @@ async def search_applications(
     value_min: Optional[int] = Query(None, description="Minimum estimated value (€)"),
     value_max: Optional[int] = Query(None, description="Maximum estimated value (€)"),
     one_off_house: Optional[bool] = Query(None, description="Filter one-off houses"),
+    jurisdiction: Optional[str] = Query(None, description="Jurisdiction: 'roi', 'ni', or None for all"),
     sort: str = Query("date_desc", description="Sort order"),
     page: int = Query(1, ge=1, description="Page number"),
     page_size: int = Query(25, ge=1, le=100, description="Results per page"),
@@ -340,6 +388,12 @@ async def search_applications(
         conditions.append(Application.est_value_high >= value_min)
     if value_max is not None:
         conditions.append(Application.est_value_high <= value_max)
+
+    # Jurisdiction filter
+    if jurisdiction == "roi":
+        conditions.append(Application.data_source.in_(["npad", "NPAD", "CORKCOCO_EPLAN", "dcc_csv"]))
+    elif jurisdiction == "ni":
+        conditions.append(Application.data_source == "NIDFT")
 
     # One-off house filter
     if one_off_house is not None:

@@ -426,6 +426,15 @@ export default function Home() {
                             {app.planning_authority}
                           </span>
                         )}
+                        {app.data_source === 'NIDFT' && (
+                          <span style={{
+                            fontSize: '0.55rem', color: '#fff',
+                            background: '#1d4ed8', padding: '0.1rem 0.3rem',
+                            borderRadius: '3px', fontWeight: 700, letterSpacing: '0.05em',
+                          }}>
+                            NI
+                          </span>
+                        )}
                         {app.lifecycle_stage && (
                           <span
                             className="text-xs px-1.5 py-0.5 rounded text-white"

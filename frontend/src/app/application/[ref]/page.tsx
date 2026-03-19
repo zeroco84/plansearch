@@ -238,6 +238,15 @@ export default function ApplicationPage() {
                   {app.planning_authority}
                 </span>
               )}
+              {app.data_source === 'NIDFT' && (
+                <span style={{
+                  fontSize: '0.65rem', color: '#fff',
+                  background: '#1d4ed8', padding: '0.15rem 0.4rem',
+                  borderRadius: '3px', fontWeight: 700, letterSpacing: '0.05em',
+                }}>
+                  NI
+                </span>
+              )}
             </div>
             <a
               href={getPortalDocumentUrl(app.reg_ref, app.year)}
@@ -273,6 +282,19 @@ export default function ApplicationPage() {
               <span>Type: {app.app_type}</span>
             )}
           </div>
+
+          {/* NI data staleness notice */}
+          {app.data_source === 'NIDFT' && (
+            <div style={{
+              marginTop: '0.6rem', padding: '0.5rem 0.75rem',
+              background: '#eff6ff', border: '1px solid #bfdbfe',
+              borderRadius: '6px', fontSize: '0.75rem', color: '#1e40af',
+              display: 'flex', alignItems: 'center', gap: '0.4rem',
+            }}>
+              <AlertCircle style={{ width: '0.875rem', height: '0.875rem', flexShrink: 0 }} />
+              NI data is updated annually each July. This record may be up to 15 months old.
+            </div>
+          )}
         </div>
 
         {/* Applicant & Company */}

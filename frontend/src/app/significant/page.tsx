@@ -29,6 +29,7 @@ export default function SignificantPage() {
   const [decision, setDecision] = useState('grant');
   const [category, setCategory] = useState('');
   const [lifecycle, setLifecycle] = useState('');
+  const [jurisdiction, setJurisdiction] = useState('');
   const [sort, setSort] = useState('date_desc');
 
   const fetchData = useCallback(async () => {
@@ -40,6 +41,7 @@ export default function SignificantPage() {
         value_min: valueMin || undefined,
         category: category || undefined,
         ...(lifecycle && { lifecycle_stage: lifecycle }),
+        ...(jurisdiction && { jurisdiction }),
         sort,
         page_size: 50,
         one_off_house: false,
@@ -155,6 +157,15 @@ export default function SignificantPage() {
         </div>
 
         <div className="filter-group">
+          <label>Jurisdiction</label>
+          <select value={jurisdiction} onChange={(e) => setJurisdiction(e.target.value)}>
+            <option value="">All Ireland</option>
+            <option value="roi">Republic of Ireland</option>
+            <option value="ni">Northern Ireland</option>
+          </select>
+        </div>
+
+        <div className="filter-group">
           <label>Sort</label>
           <select value={sort} onChange={(e) => setSort(e.target.value)}>
             <option value="date_desc">Newest First</option>
@@ -205,6 +216,15 @@ export default function SignificantPage() {
                 >
                   {app.planning_authority || 'DCC'}
                 </span>
+                {app.data_source === 'NIDFT' && (
+                  <span style={{
+                    fontSize: '0.55rem', color: '#fff',
+                    background: '#1d4ed8', padding: '0.1rem 0.3rem',
+                    borderRadius: '3px', fontWeight: 700, letterSpacing: '0.05em',
+                  }}>
+                    NI
+                  </span>
+                )}
 
                 {app.decision && (
                   <span

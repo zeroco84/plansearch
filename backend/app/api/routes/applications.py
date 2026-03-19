@@ -159,6 +159,7 @@ async def get_application(
         applicant_name=app.applicant_name,
         cro_number=app.cro_number,
         planning_authority=app.planning_authority,
+        data_source=app.data_source,
         area_of_site=app.area_of_site,
         site_area_ha=extract_site_area_from_proposal(app.proposal),
         num_residential_units=app.num_residential_units,

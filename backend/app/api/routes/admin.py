@@ -5,6 +5,7 @@ All endpoints protected by bearer token authentication.
 
 import asyncio
 import json
+import logging
 from typing import Optional
 from datetime import datetime
 
@@ -27,6 +28,7 @@ from app.utils.crypto import encrypt_value, decrypt_value, mask_value
 
 router = APIRouter()
 settings = get_settings()
+logger = logging.getLogger(__name__)
 
 # In-memory SSE event queue for live progress
 _sse_events: list[dict] = []
@@ -601,6 +603,73 @@ async def _run_floor_area_reconciliation(db: AsyncSession):
         f"Fixed area: {fixed_area}, fixed units: {fixed_units}, "
         f"cleared estimates for re-calculation: {cleared_values}"
     )
+
+
+# ── Northern Ireland Sync ───────────────────────────────────────────────
+
+
+@router.post("/admin/sync/ni/all")
+async def sync_ni_all(
+    background_tasks: BackgroundTasks,
+    _token: str = Depends(verify_admin_token),
+    db: AsyncSession = Depends(get_db),
+):
+    """Download and ingest all 8 NI financial year CSVs (2017/18 → 2024/25)."""
+    from app.workers.ni_ingest import ni_ingest_progress
+
+    if ni_ingest_progress["running"]:
+        return {"status": "already_running", "progress": ni_ingest_progress}
+
+    background_tasks.add_task(_run_ni_sync_all)
+    return {"status": "started", "message": "NI all-years sync started in background"}
+
+
+async def _run_ni_sync_all():
+    from app.workers.ni_ingest import run_ni_ingest_all
+
+    async with async_session_factory() as db:
+        try:
+            result = await run_ni_ingest_all(db)
+            logger.info(f"NI all-years sync complete: {result.get('total_processed', 0)} records")
+        except Exception as e:
+            logger.error(f"NI all-years sync failed: {e}")
+
+
+@router.post("/admin/sync/ni/latest")
+async def sync_ni_latest(
+    background_tasks: BackgroundTasks,
+    _token: str = Depends(verify_admin_token),
+    db: AsyncSession = Depends(get_db),
+):
+    """Download and ingest only the latest NI financial year CSV."""
+    from app.workers.ni_ingest import ni_ingest_progress
+
+    if ni_ingest_progress["running"]:
+        return {"status": "already_running", "progress": ni_ingest_progress}
+
+    background_tasks.add_task(_run_ni_sync_latest)
+    return {"status": "started", "message": "NI latest year sync started in background"}
+
+
+async def _run_ni_sync_latest():
+    from app.workers.ni_ingest import run_ni_ingest_latest
+
+    async with async_session_factory() as db:
+        try:
+            result = await run_ni_ingest_latest(db)
+            logger.info(f"NI latest sync complete: {result.get('processed', 0)} records")
+        except Exception as e:
+            logger.error(f"NI latest sync failed: {e}")
+
+
+@router.get("/admin/sync/ni/progress")
+async def ni_sync_progress(
+    _token: str = Depends(verify_admin_token),
+):
+    """Get NI sync progress."""
+    from app.workers.ni_ingest import ni_ingest_progress
+
+    return ni_ingest_progress
 
 
 # ── Scraper Controls ────────────────────────────────────────────────────

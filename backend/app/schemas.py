@@ -61,6 +61,7 @@ class ApplicationSummary(BaseModel):
     relevance_score: Optional[float] = None
     # Phase 2 national fields
     planning_authority: Optional[str] = None
+    data_source: Optional[str] = None
     lifecycle_stage: Optional[str] = None
     est_value_low: Optional[int] = None
     est_value_high: Optional[int] = None
@@ -164,6 +165,7 @@ class ApplicationDetail(BaseModel):
     applicant_name: Optional[str] = None
     cro_number: Optional[str] = None
     planning_authority: Optional[str] = None
+    data_source: Optional[str] = None
     area_of_site: Optional[float] = None
     site_area_ha: Optional[float] = None  # Extracted from proposal, in hectares
     num_residential_units: Optional[int] = None

@@ -298,6 +298,21 @@ export default function AdminPage() {
             </div>
           </Link>
 
+          <Link href="/admin/ni-sync" className="admin-card hover:border-[var(--teal)] transition-colors no-underline">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ background: '#eff6ff' }}>
+                  <span style={{ fontSize: '1.1rem' }}>🇬🇧</span>
+                </div>
+                <div>
+                  <h3 className="text-base font-semibold text-[var(--text-primary)]">Northern Ireland Sync</h3>
+                  <p className="text-xs text-[var(--text-muted)]">OpenDataNI CSVs — 11 councils, 200k+ records</p>
+                </div>
+              </div>
+              <ChevronRight className="w-4 h-4 text-[var(--text-muted)]" />
+            </div>
+          </Link>
+
           <Link href="/admin/scraper" className="admin-card hover:border-[var(--teal)] transition-colors no-underline">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">

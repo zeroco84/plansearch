@@ -21,6 +21,7 @@ export interface ApplicationSummary {
   relevance_score: number | null;
   // Phase 2 national fields
   planning_authority: string | null;
+  data_source: string | null;
   lifecycle_stage: string | null;
   est_value_low: number | null;
   est_value_high: number | null;
@@ -106,6 +107,7 @@ export interface ApplicationDetail {
   applicant_name: string | null;
   cro_number: string | null;
   planning_authority: string | null;
+  data_source: string | null;
   area_of_site: number | null;
   site_area_ha: number | null;
   num_residential_units: number | null;
@@ -184,6 +186,7 @@ export interface SearchParams {
   value_min?: number;
   value_max?: number;
   one_off_house?: boolean;
+  jurisdiction?: string;
   sort?: string;
   page?: number;
   page_size?: number;
@@ -558,6 +561,20 @@ export const IRISH_AUTHORITIES: Record<string, string[]> = {
     'Donegal County Council',
     'Cavan County Council',
     'Monaghan County Council',
+  ],
+  'Northern Ireland': [
+    'Antrim and Newtownabbey',
+    'Ards and North Down',
+    'Armagh City, Banbridge and Craigavon',
+    'Belfast City Council',
+    'Causeway Coast and Glens',
+    'Derry City and Strabane',
+    'Fermanagh and Omagh',
+    'Lisburn and Castlereagh',
+    'Mid and East Antrim',
+    'Mid Ulster',
+    'Newry, Mourne and Down',
+    'Department for Infrastructure (NI)',
   ],
 };
 
