@@ -175,6 +175,15 @@ export default function Home() {
               <Bell className="w-5 h-5" />
               <span className="hidden sm:inline">Alerts</span>
             </Link>
+            <Link href="/pricing" style={{
+              display: 'flex', alignItems: 'center', gap: '0.4rem',
+              background: '#1d9e75', color: 'white',
+              padding: '0.4rem 1rem', borderRadius: '6px',
+              textDecoration: 'none', fontSize: '0.875rem', fontWeight: '600',
+              marginLeft: '0.5rem',
+            }}>
+              <span>Get Alerts</span>
+            </Link>
             <Link href="/login" className="nav-link">
               <UserCircle className="w-5 h-5" />
               <span className="hidden sm:inline">Login</span>
@@ -189,7 +198,7 @@ export default function Home() {
         style={{ background: 'linear-gradient(160deg, #0d1117 0%, #111827 50%, #0f2027 100%)', padding: '3rem 1.5rem', minHeight: '70vh' }}
       >
         <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: '0.7rem', letterSpacing: '0.18em', textTransform: 'uppercase', marginBottom: '2rem', textAlign: 'center', width: '100%', padding: '0 1rem' }}>
-          300,000+ planning applications · 31 local authorities · AI-classified
+          600,000+ planning applications · 43 authorities · All island · AI-classified
         </p>
         <div style={{ width: '100%', maxWidth: 'min(680px, 90vw)' }}>
           <div className="relative">
@@ -261,6 +270,34 @@ export default function Home() {
                 </button>
               ))}
             </div>
+          </div>
+        )}
+
+        {/* Value prop — only shown when no query */}
+        {!query && (
+          <div style={{
+            marginTop: '3rem',
+            textAlign: 'center',
+            padding: '0 1.5rem',
+          }}>
+            <p style={{
+              fontSize: '0.8rem',
+              color: 'rgba(255,255,255,0.3)',
+              lineHeight: 1.7,
+              maxWidth: '480px',
+              margin: '0 auto 1rem',
+            }}>
+              Get email alerts when schemes matching your criteria get planning permission,
+              commence construction, or complete. Used by contractors, QSs and architects.
+            </p>
+            <Link href="/pricing" style={{
+              display: 'inline-flex', alignItems: 'center', gap: '0.4rem',
+              color: '#1d9e75', fontSize: '0.8rem', fontWeight: '600',
+              textDecoration: 'none', borderBottom: '1px solid rgba(29,158,117,0.4)',
+              paddingBottom: '1px',
+            }}>
+              From €29/month — see pricing →
+            </Link>
           </div>
         )}
       </section>
@@ -544,7 +581,7 @@ export default function Home() {
       <footer style={{ borderTop: '1px solid #e5e7eb', padding: '2rem 1.5rem', background: query ? '#f9f8f6' : '#0d1117' }}>
         <div style={{ maxWidth: '860px', margin: '0 auto', textAlign: 'center', fontSize: '0.75rem', color: query ? '#9ca3af' : 'rgba(255,255,255,0.25)' }}>
           <p>PlanSearch — Irish National Planning Intelligence Platform</p>
-          <p style={{ marginTop: '4px' }}>Data sourced from NPAD, BCMS, and DCC Open Data (CC BY 4.0). AI classification and value estimation powered by Claude.</p>
+          <p style={{ marginTop: '4px' }}>Data sourced from NPAD, BCMS, OpenDataNI, and Cork County ePlan. AI classification and value estimation powered by Claude.</p>
           <p style={{ marginTop: '8px' }}>
             <Link href="/pricing" style={{ color: query ? '#0d9488' : 'rgba(45,212,191,0.5)', textDecoration: 'none', marginRight: '12px' }}>Pricing</Link>
             <Link href="/admin" style={{ color: query ? '#9ca3af' : 'rgba(255,255,255,0.2)', textDecoration: 'none' }}>Admin</Link>
