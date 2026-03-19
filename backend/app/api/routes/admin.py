@@ -672,6 +672,65 @@ async def ni_sync_progress(
     return ni_ingest_progress
 
 
+# ── Cork County Council Scraper ─────────────────────────────────────────
+
+_cork_task: Optional[asyncio.Task] = None
+
+
+@router.post("/admin/scrape/cork/start")
+async def start_cork_scraper(
+    _token: str = Depends(verify_admin_token),
+):
+    """Start the Cork County continuous scraper."""
+    global _cork_task
+    from app.workers.cork_scraper import cork_scraper_progress, run_cork_continuous_loop
+
+    if cork_scraper_progress["running"]:
+        return {"status": "already_running", "progress": cork_scraper_progress}
+
+    _cork_task = asyncio.create_task(run_cork_continuous_loop())
+    return {"status": "started", "message": "Cork County continuous scraper started"}
+
+
+@router.post("/admin/scrape/cork/stop")
+async def stop_cork_scraper(
+    _token: str = Depends(verify_admin_token),
+):
+    """Stop the Cork County scraper."""
+    global _cork_task
+    from app.workers.cork_scraper import cork_scraper_progress
+
+    cork_scraper_progress["running"] = False
+    if _cork_task and not _cork_task.done():
+        _cork_task.cancel()
+    return {"status": "stopped", "message": "Cork County scraper stopping"}
+
+
+@router.post("/admin/scrape/cork/backfill")
+async def start_cork_backfill(
+    _token: str = Depends(verify_admin_token),
+):
+    """Run 2-year Cork County backfill."""
+    global _cork_task
+    from app.workers.cork_scraper import cork_scraper_progress, run_cork_backfill
+
+    if cork_scraper_progress["running"]:
+        return {"status": "already_running", "progress": cork_scraper_progress}
+
+    _cork_task = asyncio.create_task(run_cork_backfill())
+    return {"status": "started", "message": "Cork County 2-year backfill started"}
+
+
+@router.get("/admin/scrape/cork/progress")
+async def cork_scraper_progress_endpoint(
+    _token: str = Depends(verify_admin_token),
+):
+    """Get Cork scraper progress."""
+    from app.workers.cork_scraper import cork_scraper_progress
+
+    return cork_scraper_progress
+
+
 # ── Scraper Controls ────────────────────────────────────────────────────
 
 @router.post("/admin/scrape/trigger")

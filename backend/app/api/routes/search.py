@@ -74,7 +74,9 @@ Examples:
 "apartments near DART" -> {{"dev_category": "residential_new_build", "planning_authorities": [], "keywords": "DART", "decision": null}}
 "protected structure Dublin 4" -> {{"dev_category": "protected_structure", "planning_authorities": ["Dublin City Council"], "keywords": "Dublin 4", "decision": null}}
 "wind farm donegal" -> {{"dev_category": "renewable_energy", "planning_authorities": ["Donegal County Council"], "keywords": "wind farm", "decision": null}}
-"office block dublin" -> {{"dev_category": "commercial_office", "planning_authorities": ["Dublin City Council", "Fingal County Council", "South Dublin County Council", "Dún Laoghaire-Rathdown County Council"], "keywords": null, "decision": null}}"""
+"office block dublin" -> {{"dev_category": "commercial_office", "planning_authorities": ["Dublin City Council", "Fingal County Council", "South Dublin County Council", "Dún Laoghaire-Rathdown County Council"], "keywords": null, "decision": null}}
+"apartments belfast" -> {{"dev_category": "residential_new_build", "planning_authorities": ["Belfast City Council"], "keywords": null, "decision": null}}
+"commercial derry" -> {{"dev_category": "commercial_retail", "planning_authorities": ["Derry City and Strabane"], "keywords": null, "decision": null}}"""
 
 
 # Fallback location parsing (used when AI is unavailable)
