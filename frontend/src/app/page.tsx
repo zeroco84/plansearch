@@ -219,7 +219,7 @@ export default function Home() {
             letterSpacing: '-0.01em',
             lineHeight: 1.4,
           }}>
-            Find your next project before anyone else. Free to search.
+            Find your next project before anyone else. And did we mention it&apos;s free?
           </p>
         </div>
         <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: '0.7rem', letterSpacing: '0.18em', textTransform: 'uppercase', marginBottom: '2rem', textAlign: 'center', width: '100%', padding: '0 1rem' }}>
