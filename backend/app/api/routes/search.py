@@ -9,6 +9,7 @@ GET /api/search — AI-powered intent parsing + structured database query.
 
 import hashlib
 import json
+import re
 import logging
 import os
 import time
@@ -31,16 +32,52 @@ logger = logging.getLogger(__name__)
 
 # ── AI Intent Parsing ────────────────────────────────────────────────────
 
+# ── Pre-AI detection helpers ─────────────────────────────────────────────
+
+def looks_like_reg_ref(query: str) -> bool:
+    """Detect planning reference patterns like DC/4436/23, KE/2460787, NI/LA04/2024/0123/F"""
+    q = query.strip().upper()
+    patterns = [
+        r'^[A-Z]{2,3}/\d+',           # DC/4436/23, KE/24607
+        r'^NI/[A-Z]+/\d+',            # NI/LA04/2024/...
+        r'^[A-Z]{2}/[A-Z0-9]+/\d+',   # SD/SD26B/0100W
+    ]
+    return any(re.match(p, q) for p in patterns)
+
+
+EIRCODE_PATTERN = re.compile(r'\b[A-Z]\d{1,2}[A-Z0-9]{4}\b', re.IGNORECASE)
+PLANNING_WORDS = {
+    'apartment', 'apartments', 'house', 'houses', 'bungalow', 'hotel',
+    'office', 'warehouse', 'shop', 'school', 'extension', 'demolition',
+    'residential', 'commercial', 'planning', 'development', 'permission',
+    'granted', 'refused', 'wind', 'solar', 'turbine', 'data centre',
+    'student', 'accommodation', 'retail', 'industrial', 'mixed',
+    'protected', 'signage', 'telecommunications',
+}
+
+
+def looks_like_address_query(query: str) -> bool:
+    """Query is a street/eircode lookup with no planning-specific words."""
+    if EIRCODE_PATTERN.search(query):
+        return True
+    words = set(query.lower().split())
+    return not words.intersection(PLANNING_WORDS)
+
+
 INTENT_PROMPT = """Extract search intent from this Irish planning search query.
 
 Query: "{query}"
 
 Available dev_categories:
-residential_new_build, residential_extension, residential_conversion,
-hotel_accommodation, student_accommodation, commercial_retail,
-commercial_office, industrial_warehouse, data_centre, mixed_use,
-protected_structure, telecommunications, renewable_energy, signage,
-change_of_use, demolition, other
+residential_new_build (apartments, houses, housing developments),
+residential_extension (extensions, conversions of existing homes),
+residential_conversion,
+student_accommodation (PBSA, student beds),
+data_centre (data centres, server facilities),
+hotel_accommodation (hotels, hostels, apart-hotels),
+commercial_retail, commercial_office, industrial_warehouse,
+mixed_use, protected_structure, telecommunications,
+renewable_energy, signage, change_of_use, demolition, other
 
 Available planning authorities (use exact spelling):
 Dublin City Council, Fingal County Council, South Dublin County Council,
@@ -69,15 +106,21 @@ Respond ONLY with JSON:
   "decision": "granted or refused or pending, or null"
 }}
 
+IMPORTANT: When the query contains a specific building type word (apartments, houses, bungalow, warehouse, office, hotel, wind farm, solar, data centre etc.), always include that word in keywords even if you've already set dev_category. The category is for broad filtering, the keyword is for specific matching within that category.
+
 Examples:
 "student accommodation galway" -> {{"dev_category": "student_accommodation", "planning_authorities": ["Galway City Council", "Galway County Council"], "keywords": null, "decision": null}}
 "refused hotels cork" -> {{"dev_category": "hotel_accommodation", "planning_authorities": ["Cork City Council", "Cork County Council"], "keywords": null, "decision": "refused"}}
 "data centre kildare" -> {{"dev_category": "data_centre", "planning_authorities": ["Kildare County Council"], "keywords": null, "decision": null}}
-"apartments near DART" -> {{"dev_category": "residential_new_build", "planning_authorities": [], "keywords": "DART", "decision": null}}
+"apartments near DART" -> {{"dev_category": "residential_new_build", "planning_authorities": [], "keywords": "apartments DART", "decision": null}}
+"apartments dublin" -> {{"dev_category": "residential_new_build", "planning_authorities": ["Dublin City Council", "Fingal County Council", "South Dublin County Council", "Dún Laoghaire-Rathdown County Council"], "keywords": "apartments", "decision": null}}
+"houses cork" -> {{"dev_category": "residential_new_build", "planning_authorities": ["Cork City Council", "Cork County Council"], "keywords": "houses", "decision": null}}
+"warehouses kildare" -> {{"dev_category": "industrial_warehouse", "planning_authorities": ["Kildare County Council"], "keywords": "warehouse", "decision": null}}
+"wind turbines donegal" -> {{"dev_category": "renewable_energy", "planning_authorities": ["Donegal County Council"], "keywords": "wind turbine", "decision": null}}
 "protected structure Dublin 4" -> {{"dev_category": "protected_structure", "planning_authorities": ["Dublin City Council"], "keywords": "Dublin 4", "decision": null}}
 "wind farm donegal" -> {{"dev_category": "renewable_energy", "planning_authorities": ["Donegal County Council"], "keywords": "wind farm", "decision": null}}
-"office block dublin" -> {{"dev_category": "commercial_office", "planning_authorities": ["Dublin City Council", "Fingal County Council", "South Dublin County Council", "Dún Laoghaire-Rathdown County Council"], "keywords": null, "decision": null}}
-"apartments belfast" -> {{"dev_category": "residential_new_build", "planning_authorities": ["Belfast City Council"], "keywords": null, "decision": null}}
+"office block dublin" -> {{"dev_category": "commercial_office", "planning_authorities": ["Dublin City Council", "Fingal County Council", "South Dublin County Council", "Dún Laoghaire-Rathdown County Council"], "keywords": "office", "decision": null}}
+"apartments belfast" -> {{"dev_category": "residential_new_build", "planning_authorities": ["Belfast City Council"], "keywords": "apartments", "decision": null}}
 "commercial derry" -> {{"dev_category": "commercial_retail", "planning_authorities": ["Derry City and Strabane"], "keywords": null, "decision": null}}"""
 
 
@@ -250,7 +293,7 @@ async def parse_search_intent(query: str, db: AsyncSession) -> dict:
                 "hotel_accommodation", "student_accommodation", "commercial_retail",
                 "commercial_office", "industrial_warehouse", "data_centre", "mixed_use",
                 "protected_structure", "telecommunications", "renewable_energy", "signage",
-                "change_of_use", "demolition", "other",
+                "change_of_use", "demolition", "student_accommodation", "other",
             }
             if intent.get("dev_category") and intent["dev_category"] not in valid_categories:
                 intent["dev_category"] = None
@@ -342,8 +385,71 @@ async def search_applications(
     intent = None
     inferred_location: Optional[str] = None
 
+    # ── Fix 1: Direct reg_ref lookup — skip AI entirely ──
+    if text_query.strip() and looks_like_reg_ref(text_query):
+        search_term = text_query.strip()
+        result = await db.execute(
+            select(
+                Application,
+                ST_Y(Application.location_point).label("lat"),
+                ST_X(Application.location_point).label("lng"),
+            ).where(
+                Application.reg_ref.ilike(f"%{search_term}%")
+            ).order_by(Application.apn_date.desc().nullslast()).limit(page_size)
+        )
+        rows = result.all()
+        results = []
+        for row in rows:
+            app = row[0]
+            results.append(
+                ApplicationSummary(
+                    id=app.id,
+                    reg_ref=app.reg_ref,
+                    apn_date=app.apn_date,
+                    proposal=app.proposal[:200] if app.proposal else None,
+                    location=app.location,
+                    decision=app.decision,
+                    dev_category=app.dev_category,
+                    dev_subcategory=app.dev_subcategory,
+                    applicant_name=app.applicant_name,
+                    lat=row[1],
+                    lng=row[2],
+                    relevance_score=None,
+                    planning_authority=app.planning_authority,
+                    lifecycle_stage=app.lifecycle_stage,
+                    est_value_low=app.est_value_low,
+                    est_value_high=app.est_value_high,
+                    significance_score=app.significance_score,
+                    num_residential_units=app.num_residential_units,
+                    floor_area=app.floor_area,
+                )
+            )
+        query_time_ms = (time.time() - start_time) * 1000
+        return SearchResponse(
+            results=results,
+            total=len(results),
+            page=1,
+            page_size=page_size,
+            total_pages=1,
+            query_time_ms=round(query_time_ms, 2),
+            inferred_location=None,
+            intent={"dev_category": None, "planning_authorities": [],
+                    "keywords": search_term, "decision": None},
+        )
+
+    # ── Fix 3: Eircode / address detection — skip AI ──
+    if text_query.strip() and looks_like_address_query(text_query):
+        intent = {
+            "dev_category": None,
+            "planning_authorities": [],
+            "keywords": text_query.strip(),
+            "decision": None,
+        }
+        # Search against location field directly
+        conditions = [Application.location.ilike(f"%{text_query.strip()}%")]
+        # Fall through to the main query execution below
     # Only use AI intent when there's a text query and no manual overrides
-    if text_query.strip():
+    elif text_query.strip():
         intent = await parse_search_intent(text_query, db)
 
         # Derive friendly location label
@@ -354,7 +460,8 @@ async def search_applications(
             )
 
     # ── Build query conditions ──
-    conditions = []
+    if not (text_query.strip() and looks_like_address_query(text_query)):
+        conditions = []
 
     # Category filter — manual override takes precedence over AI
     effective_category = category or (intent.get("dev_category") if intent else None)
