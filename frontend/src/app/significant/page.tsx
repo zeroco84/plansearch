@@ -306,12 +306,12 @@ export default function SignificantPage() {
 
         .filters-bar {
           display: flex;
-          gap: 1rem;
+          flex-wrap: wrap;
+          gap: 0.75rem;
           padding: 1rem 2rem;
-          overflow-x: auto;
           background: rgba(255,255,255,0.02);
           border-bottom: 1px solid rgba(255,255,255,0.06);
-          max-width: 900px;
+          max-width: 1100px;
           margin: 0 auto;
         }
 
@@ -319,7 +319,8 @@ export default function SignificantPage() {
           display: flex;
           flex-direction: column;
           gap: 0.25rem;
-          min-width: 140px;
+          min-width: 120px;
+          flex: 1;
         }
 
         .filter-group label {
@@ -346,7 +347,7 @@ export default function SignificantPage() {
         .filter-group select:focus { border-color: #60a5fa; }
 
         .results-section {
-          max-width: 900px;
+          max-width: 1100px;
           margin: 0 auto;
           padding: 1.5rem 2rem;
         }
