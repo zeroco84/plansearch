@@ -219,11 +219,11 @@ export default function Home() {
             letterSpacing: '-0.01em',
             lineHeight: 1.4,
           }}>
-            Find your next project before anyone else. And did we mention it&apos;s free?
+            Find your next project before anyone else.
           </p>
         </div>
         <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: '0.7rem', letterSpacing: '0.18em', textTransform: 'uppercase', marginBottom: '2rem', textAlign: 'center', width: '100%', padding: '0 1rem' }}>
-          600,000+ planning applications, commencement notices, DACs and FSCs · 43 authorities · All island · AI-classified
+          600,000+ planning applications, commencement notices, DACs and FSCs · 43 authorities · All island · AI-classified · Free to search
         </p>
         <div style={{ width: '100%', maxWidth: 'min(680px, 90vw)' }}>
           <div className="relative">
