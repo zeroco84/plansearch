@@ -38,3 +38,6 @@ postgres_data/
 # Temporary
 /tmp/
 *.tmp
+
+# Private docs/specs
+docs/

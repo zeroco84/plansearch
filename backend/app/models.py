@@ -5,6 +5,7 @@ Maps to the PostgreSQL schema defined in scripts/init_schema.sql.
 
 from datetime import date, datetime
 from typing import Optional
+import uuid
 
 from geoalchemy2 import Geometry
 from sqlalchemy import (
@@ -15,6 +16,7 @@ from sqlalchemy import (
     Float,
     ForeignKey,
     Integer,
+    JSON,
     Numeric,
     String,
     Text,
@@ -22,7 +24,7 @@ from sqlalchemy import (
     func,
     Computed,
 )
-from sqlalchemy.dialects.postgresql import JSONB, TSVECTOR, ARRAY
+from sqlalchemy.dialects.postgresql import JSONB, TSVECTOR, ARRAY, UUID
 from sqlalchemy.orm import relationship
 
 from app.database import Base
@@ -537,3 +539,96 @@ class AdImpression(Base):
     page_path = Column(Text)
     clicked = Column(Boolean, default=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+# ═════════════════════════════════════════════════════════════════
+# Phase 4: User Accounts & Paid Alerts
+# ═════════════════════════════════════════════════════════════════
+
+
+class User(Base):
+    """Registered user with Stripe subscription."""
+
+    __tablename__ = "users"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    email = Column(String(255), unique=True, nullable=False, index=True)
+    password_hash = Column(String(255), nullable=False)
+    full_name = Column(String(255), nullable=True)
+    company = Column(String(255), nullable=True)
+    phone = Column(String(50), nullable=True)
+
+    # Subscription
+    stripe_customer_id = Column(String(100), nullable=True, unique=True)
+    stripe_subscription_id = Column(String(100), nullable=True)
+    subscription_tier = Column(String(20), default="free")  # free, starter, professional, agency
+    subscription_status = Column(String(20), default="inactive")  # active, inactive, cancelled, past_due
+    subscription_expires_at = Column(DateTime(timezone=True), nullable=True)
+
+    # Meta
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    last_login_at = Column(DateTime(timezone=True), nullable=True)
+    email_verified = Column(Boolean, default=False)
+    is_active = Column(Boolean, default=True)
+
+    alert_profiles = relationship("AlertProfile", back_populates="user", cascade="all, delete-orphan")
+    alert_deliveries = relationship("AlertDelivery", back_populates="user")
+
+
+class AlertProfile(Base):
+    """User-defined alert filter profile."""
+
+    __tablename__ = "alert_profiles"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    name = Column(String(255), nullable=False)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    last_triggered_at = Column(DateTime(timezone=True), nullable=True)
+
+    # Trigger events — which lifecycle events to watch
+    trigger_events = Column(JSON, default=list)
+
+    # Filters — combined with AND logic
+    planning_authorities = Column(JSON, default=list)
+    dev_categories = Column(JSON, default=list)
+    value_min = Column(Integer, nullable=True)
+    value_max = Column(Integer, nullable=True)
+    keywords = Column(String(500), nullable=True)
+
+    # Delivery preferences
+    frequency = Column(String(20), default="daily")      # instant, daily, weekly
+    email_format = Column(String(20), default="digest")   # digest, individual
+
+    user = relationship("User", back_populates="alert_profiles")
+    deliveries = relationship("AlertDelivery", back_populates="alert_profile")
+
+
+class AlertDelivery(Base):
+    """Record of a sent alert email."""
+
+    __tablename__ = "alert_deliveries"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    alert_profile_id = Column(UUID(as_uuid=True), ForeignKey("alert_profiles.id"), nullable=False)
+    sent_at = Column(DateTime(timezone=True), server_default=func.now())
+    application_count = Column(Integer, default=0)
+    email_subject = Column(String(500), nullable=True)
+    status = Column(String(20), default="sent")  # sent, failed, bounced
+
+    user = relationship("User", back_populates="alert_deliveries")
+    alert_profile = relationship("AlertProfile", back_populates="deliveries")
+
+
+class AlertMatch(Base):
+    """Individual application match for an alert delivery."""
+
+    __tablename__ = "alert_matches"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    delivery_id = Column(UUID(as_uuid=True), ForeignKey("alert_deliveries.id"), nullable=False)
+    reg_ref = Column(String(100), nullable=False)
+    trigger_event = Column(String(50), nullable=False)
+    matched_at = Column(DateTime(timezone=True), server_default=func.now())

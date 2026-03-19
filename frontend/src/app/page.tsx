@@ -5,7 +5,7 @@ import Link from 'next/link';
 import {
   Search, MapPin, Filter, Download, ChevronDown,
   Building2, Calendar, Scale, ArrowUpDown, X, Settings,
-  Database, Map as MapIcon, TrendingUp, BookOpen
+  Database, Map as MapIcon, TrendingUp, BookOpen, Bell
 } from 'lucide-react';
 import {
   searchApplications, SearchParams, ApplicationSummary, SearchResponse,
@@ -170,6 +170,10 @@ export default function Home() {
             <Link href="/insights" className="nav-link">
               <BookOpen className="w-5 h-5" />
               <span className="hidden sm:inline">Insights</span>
+            </Link>
+            <Link href="/alerts" className="nav-link">
+              <Bell className="w-5 h-5" />
+              <span className="hidden sm:inline">Alerts</span>
             </Link>
             <Link href="/admin" className="nav-link">
               <Settings className="w-5 h-5" />

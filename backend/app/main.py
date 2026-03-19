@@ -1,5 +1,6 @@
 import asyncio
 import logging
+from datetime import datetime
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -11,8 +12,10 @@ from app.config import get_settings
 from app.database import engine, Base
 from app.api.routes import search, applications, map, stats, admin, export, docs, digest
 from app.api.routes import insights, advertising
+from app.api.routes import auth, billing, alerts
 from app import models  # noqa: F401 — ensure all models are registered
 from app.models import CostBenchmark, CommencementNotice, FSCApplication  # noqa: F401
+from app.models import User, AlertProfile, AlertDelivery, AlertMatch  # noqa: F401
 
 logging.basicConfig(
     level=logging.INFO,
@@ -34,6 +37,28 @@ async def substack_refresh_loop():
             logger.info("Substack posts refreshed")
         except Exception as e:
             logger.error(f"Substack refresh failed: {e}")
+
+
+async def alert_engine_loop():
+    """Run alert engine on schedule."""
+    from app.workers.alert_engine import run_alert_engine
+
+    logger.info("Alert engine scheduler started")
+    while True:
+        now = datetime.utcnow()
+        try:
+            # Instant alerts: every 30 minutes
+            if now.minute in (0, 30):
+                asyncio.create_task(run_alert_engine("instant"))
+            # Daily alerts: 8am UTC
+            if now.hour == 8 and now.minute == 0:
+                asyncio.create_task(run_alert_engine("daily"))
+            # Weekly alerts: Monday 8am UTC
+            if now.weekday() == 0 and now.hour == 8 and now.minute == 0:
+                asyncio.create_task(run_alert_engine("weekly"))
+        except Exception as e:
+            logger.error(f"Alert engine scheduler error: {e}")
+        await asyncio.sleep(60)  # Check every minute
 
 
 @asynccontextmanager
@@ -86,6 +111,9 @@ async def lifespan(app: FastAPI):
     # Background refresh loop
     asyncio.create_task(substack_refresh_loop())
 
+    # Alert engine scheduler
+    asyncio.create_task(alert_engine_loop())
+
     logger.info(f"PlanSearch API v{settings.app_version} starting...")
     yield
     logger.info("PlanSearch API shutting down...")
@@ -118,6 +146,10 @@ app.include_router(docs.router, prefix="/api", tags=["Documents"])
 app.include_router(digest.router, prefix="/api", tags=["Digest"])
 # Phase 3
 app.include_router(insights.router, tags=["Insights"])
+# Phase 4 — User accounts & alerts
+app.include_router(auth.router, prefix="/api", tags=["Auth"])
+app.include_router(billing.router, prefix="/api", tags=["Billing"])
+app.include_router(alerts.router, prefix="/api", tags=["Alerts"])
 app.include_router(advertising.router, tags=["Advertising"])
 
 
