@@ -7,7 +7,7 @@ import {
   ArrowLeft, MapPin, Calendar, Building2, FileText, Scale,
   ExternalLink, Clock, CheckCircle, AlertCircle, XCircle,
   Database, Settings, Map as MapIcon, Download, Search,
-  TrendingUp, BookOpen,
+  TrendingUp, BookOpen, Bell, UserCircle,
 } from 'lucide-react';
 import {
   getApplication, ApplicationDetail,
@@ -140,7 +140,8 @@ function AppNav() {
           <Link href="/map" className="nav-link"><MapIcon className="w-5 h-5" /><span className="hidden sm:inline">Map</span></Link>
           <Link href="/significant" className="nav-link"><TrendingUp className="w-5 h-5" /><span className="hidden sm:inline">Significant</span></Link>
           <Link href="/insights" className="nav-link"><BookOpen className="w-5 h-5" /><span className="hidden sm:inline">Insights</span></Link>
-          <Link href="/admin" className="nav-link"><Settings className="w-5 h-5" /><span className="hidden sm:inline">Admin</span></Link>
+          <Link href="/alerts" className="nav-link"><Bell className="w-5 h-5" /><span className="hidden sm:inline">Alerts</span></Link>
+          <Link href="/login" className="nav-link"><UserCircle className="w-5 h-5" /><span className="hidden sm:inline">Login</span></Link>
         </div>
       </div>
     </nav>

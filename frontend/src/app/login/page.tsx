@@ -61,7 +61,10 @@ function LoginForm() {
             <Database style={{ width: 20, height: 20, color: '#2dd4bf' }} />
             <span style={{ color: 'white', fontSize: '1.125rem', fontWeight: 600, fontFamily: "'Playfair Display', serif" }}>PlanSearch</span>
           </Link>
-          <Link href="/pricing" style={{ color: '#2dd4bf', textDecoration: 'none', fontSize: '0.875rem', fontWeight: 600 }}>Pricing</Link>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
+            <Link href="/pricing" style={{ color: '#2dd4bf', textDecoration: 'none', fontSize: '0.875rem', fontWeight: 600 }}>Pricing</Link>
+            <Link href="/" style={{ color: '#94a3b8', textDecoration: 'none', fontSize: '0.875rem' }}>Search</Link>
+          </div>
         </div>
       </nav>
 
@@ -152,8 +155,14 @@ function LoginForm() {
           <p style={{ textAlign: 'center', color: '#64748b', fontSize: '0.85rem', marginTop: '1.5rem' }}>
             Don&apos;t have an account?{' '}
             <Link href={`/register?next=${encodeURIComponent(next)}`} style={{ color: '#2dd4bf', textDecoration: 'none', fontWeight: 600 }}>
-              Create one
+              Create one free
             </Link>
+          </p>
+          <p style={{ textAlign: 'center', color: '#475569', fontSize: '0.75rem', marginTop: '0.75rem' }}>
+            Creating an account is free. An alert subscription is only needed for email alerts.
+          </p>
+          <p style={{ textAlign: 'center', marginTop: '1rem' }}>
+            <Link href="/pricing" style={{ color: '#64748b', textDecoration: 'none', fontSize: '0.8rem' }}>View pricing plans →</Link>
           </p>
         </div>
       </div>

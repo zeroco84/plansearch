@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
   Database, Search, Map as MapIcon, TrendingUp, BookOpen,
-  Check, Zap, Star, Crown, ArrowRight, Bell,
+  Check, Zap, Star, Crown, ArrowRight, Bell, UserCircle,
 } from 'lucide-react';
 
 const API_BASE = process.env.NODE_ENV === 'production'
@@ -104,20 +104,23 @@ export default function PricingPage() {
 
   return (
     <main style={{ minHeight: '100vh', background: '#0d1117' }}>
-      {/* Nav */}
+      {/* Nav — consistent with all pages */}
       <nav style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: '64px', padding: '0 2rem', maxWidth: '1200px', margin: '0 auto' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: '64px', padding: '0 2rem', width: '100%' }}>
           <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', textDecoration: 'none' }}>
             <Database style={{ width: 20, height: 20, color: '#2dd4bf' }} />
             <span style={{ color: 'white', fontSize: '1.125rem', fontWeight: 600, fontFamily: "'Playfair Display', serif" }}>PlanSearch</span>
           </Link>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-            <Link href="/" style={{ color: '#94a3b8', textDecoration: 'none', fontSize: '0.875rem' }}>Search</Link>
-            <Link href="/significant" style={{ color: '#94a3b8', textDecoration: 'none', fontSize: '0.875rem' }}>Significant</Link>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+            <Link href="/" className="nav-link"><Search style={{ width: 20, height: 20 }} /><span className="hidden sm:inline">Search</span></Link>
+            <Link href="/map" className="nav-link"><MapIcon style={{ width: 20, height: 20 }} /><span className="hidden sm:inline">Map</span></Link>
+            <Link href="/significant" className="nav-link"><TrendingUp style={{ width: 20, height: 20 }} /><span className="hidden sm:inline">Significant</span></Link>
+            <Link href="/insights" className="nav-link"><BookOpen style={{ width: 20, height: 20 }} /><span className="hidden sm:inline">Insights</span></Link>
+            <Link href="/alerts" className="nav-link"><Bell style={{ width: 20, height: 20 }} /><span className="hidden sm:inline">Alerts</span></Link>
             {token ? (
-              <Link href="/alerts" style={{ color: '#2dd4bf', textDecoration: 'none', fontSize: '0.875rem', fontWeight: 600 }}>My Alerts</Link>
+              <Link href="/alerts" className="nav-link" style={{ color: 'var(--teal)' }}><UserCircle style={{ width: 20, height: 20 }} /><span className="hidden sm:inline">Account</span></Link>
             ) : (
-              <Link href="/login" style={{ color: '#2dd4bf', textDecoration: 'none', fontSize: '0.875rem', fontWeight: 600 }}>Login</Link>
+              <Link href="/login" className="nav-link"><UserCircle style={{ width: 20, height: 20 }} /><span className="hidden sm:inline">Login</span></Link>
             )}
           </div>
         </div>
@@ -132,9 +135,12 @@ export default function PricingPage() {
         <h1 style={{ color: 'white', fontSize: '2.5rem', fontWeight: 700, marginBottom: '1rem', fontFamily: "'Playfair Display', serif", lineHeight: 1.2 }}>
           Never miss a planning application<br />that matters to your business
         </h1>
-        <p style={{ color: '#94a3b8', fontSize: '1.1rem', lineHeight: 1.6, maxWidth: '600px', margin: '0 auto 2rem' }}>
+        <p style={{ color: '#94a3b8', fontSize: '1.1rem', lineHeight: 1.6, maxWidth: '600px', margin: '0 auto 1rem' }}>
           Set custom alerts by location, development type, value, and lifecycle stage.
           Delivered to your inbox — instant, daily, or weekly.
+        </p>
+        <p style={{ color: '#64748b', fontSize: '0.85rem', marginBottom: '0.5rem' }}>
+          Search, map, and explore planning data is <strong style={{ color: '#94a3b8' }}>always free</strong>. Alerts require a subscription.
         </p>
         <p style={{ color: '#64748b', fontSize: '0.85rem' }}>
           Already used by contractors, QSs and architects across Ireland

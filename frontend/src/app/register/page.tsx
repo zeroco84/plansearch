@@ -91,7 +91,10 @@ function RegisterForm() {
             <Database style={{ width: 20, height: 20, color: '#2dd4bf' }} />
             <span style={{ color: 'white', fontSize: '1.125rem', fontWeight: 600, fontFamily: "'Playfair Display', serif" }}>PlanSearch</span>
           </Link>
-          <Link href="/pricing" style={{ color: '#2dd4bf', textDecoration: 'none', fontSize: '0.875rem', fontWeight: 600 }}>Pricing</Link>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
+            <Link href="/pricing" style={{ color: '#2dd4bf', textDecoration: 'none', fontSize: '0.875rem', fontWeight: 600 }}>Pricing</Link>
+            <Link href="/" style={{ color: '#94a3b8', textDecoration: 'none', fontSize: '0.875rem' }}>Search</Link>
+          </div>
         </div>
       </nav>
 
@@ -103,10 +106,10 @@ function RegisterForm() {
               <UserPlus style={{ width: 24, height: 24, color: '#2dd4bf' }} />
             </div>
             <h1 style={{ color: 'white', fontSize: '1.5rem', fontWeight: 700, margin: '0 0 0.5rem', fontFamily: "'Playfair Display', serif" }}>
-              Create your account
+              Create your free account
             </h1>
             <p style={{ color: '#94a3b8', fontSize: '0.9rem', margin: 0 }}>
-              Start receiving planning intelligence alerts
+              It&apos;s free to create an account. Subscriptions are only needed for email alerts.
             </p>
           </div>
 
@@ -179,6 +182,9 @@ function RegisterForm() {
 
           <p style={{ textAlign: 'center', color: '#475569', fontSize: '0.75rem', marginTop: '1rem' }}>
             By creating an account you agree to our terms of service and privacy policy.
+          </p>
+          <p style={{ textAlign: 'center', marginTop: '0.75rem' }}>
+            <Link href="/pricing" style={{ color: '#64748b', textDecoration: 'none', fontSize: '0.8rem' }}>View pricing plans →</Link>
           </p>
         </div>
       </div>

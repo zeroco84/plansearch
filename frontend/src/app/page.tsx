@@ -5,7 +5,7 @@ import Link from 'next/link';
 import {
   Search, MapPin, Filter, Download, ChevronDown,
   Building2, Calendar, Scale, ArrowUpDown, X, Settings,
-  Database, Map as MapIcon, TrendingUp, BookOpen, Bell
+  Database, Map as MapIcon, TrendingUp, BookOpen, Bell, UserCircle
 } from 'lucide-react';
 import {
   searchApplications, SearchParams, ApplicationSummary, SearchResponse,
@@ -175,9 +175,9 @@ export default function Home() {
               <Bell className="w-5 h-5" />
               <span className="hidden sm:inline">Alerts</span>
             </Link>
-            <Link href="/admin" className="nav-link">
-              <Settings className="w-5 h-5" />
-              <span className="hidden sm:inline">Admin</span>
+            <Link href="/login" className="nav-link">
+              <UserCircle className="w-5 h-5" />
+              <span className="hidden sm:inline">Login</span>
             </Link>
           </div>
         </div>
@@ -545,6 +545,10 @@ export default function Home() {
         <div style={{ maxWidth: '860px', margin: '0 auto', textAlign: 'center', fontSize: '0.75rem', color: query ? '#9ca3af' : 'rgba(255,255,255,0.25)' }}>
           <p>PlanSearch — Irish National Planning Intelligence Platform</p>
           <p style={{ marginTop: '4px' }}>Data sourced from NPAD, BCMS, and DCC Open Data (CC BY 4.0). AI classification and value estimation powered by Claude.</p>
+          <p style={{ marginTop: '8px' }}>
+            <Link href="/pricing" style={{ color: query ? '#0d9488' : 'rgba(45,212,191,0.5)', textDecoration: 'none', marginRight: '12px' }}>Pricing</Link>
+            <Link href="/admin" style={{ color: query ? '#9ca3af' : 'rgba(255,255,255,0.2)', textDecoration: 'none' }}>Admin</Link>
+          </p>
         </div>
       </footer>
 

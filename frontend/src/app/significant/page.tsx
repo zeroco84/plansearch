@@ -17,7 +17,7 @@ import {
   type DigestResponse,
 } from '@/lib/api';
 import {
-  Database, Settings, Map as MapIcon, TrendingUp, BookOpen, Search,
+  Database, Settings, Map as MapIcon, TrendingUp, BookOpen, Search, Bell, UserCircle,
 } from 'lucide-react';
 
 export default function SignificantPage() {
@@ -85,9 +85,13 @@ export default function SignificantPage() {
               <BookOpen className="w-5 h-5" />
               <span className="hidden sm:inline">Insights</span>
             </Link>
-            <Link href="/admin" className="nav-link">
-              <Settings className="w-5 h-5" />
-              <span className="hidden sm:inline">Admin</span>
+            <Link href="/alerts" className="nav-link">
+              <Bell className="w-5 h-5" />
+              <span className="hidden sm:inline">Alerts</span>
+            </Link>
+            <Link href="/login" className="nav-link">
+              <UserCircle className="w-5 h-5" />
+              <span className="hidden sm:inline">Login</span>
             </Link>
           </div>
         </div>

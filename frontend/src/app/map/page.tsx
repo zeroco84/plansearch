@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import {
   Database, Settings, Search, Filter,
-  Map as MapIcon, TrendingUp, BookOpen
+  Map as MapIcon, TrendingUp, BookOpen, Bell, UserCircle
 } from 'lucide-react';
 import { CATEGORY_LABELS, getDecisionColor } from '@/lib/api';
 
@@ -291,9 +291,13 @@ export default function MapPage() {
               <BookOpen className="w-5 h-5" />
               <span className="hidden sm:inline">Insights</span>
             </Link>
-            <Link href="/admin" className="nav-link">
-              <Settings className="w-5 h-5" />
-              <span className="hidden sm:inline">Admin</span>
+            <Link href="/alerts" className="nav-link">
+              <Bell className="w-5 h-5" />
+              <span className="hidden sm:inline">Alerts</span>
+            </Link>
+            <Link href="/login" className="nav-link">
+              <UserCircle className="w-5 h-5" />
+              <span className="hidden sm:inline">Login</span>
             </Link>
           </div>
         </div>
