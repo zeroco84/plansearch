@@ -1,73 +1,97 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
-import { Database, ArrowLeft, FileText, Play, Pause, RefreshCw, Settings, Search, TrendingUp, BookOpen, Map as MapIcon } from 'lucide-react';
+import {
+  Database, ArrowLeft, FileText, Play, Square, Settings,
+  Search, TrendingUp, BookOpen, Map as MapIcon, RefreshCw,
+} from 'lucide-react';
 
 const API_BASE = process.env.NODE_ENV === 'production'
   ? 'https://api.plansearch.cc'
   : 'http://localhost:8000';
 
+interface DocScraperProgress {
+  running: boolean;
+  scraped_today: number;
+  documents_found_today: number;
+  last_ref: string | null;
+  started_at: string | null;
+  error: string | null;
+}
+
 export default function DocsPage() {
   const [token, setToken] = useState('');
-  const [status, setStatus] = useState<any>(null);
-  const [triggering, setTriggering] = useState(false);
+  const [progress, setProgress] = useState<DocScraperProgress | null>(null);
   const [message, setMessage] = useState('');
-  const [sseMessages, setSseMessages] = useState<string[]>([]);
-  const eventSourceRef = useRef<EventSource | null>(null);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     const saved = localStorage.getItem('plansearch_admin_token');
-    if (saved) { setToken(saved); loadStatus(saved); }
-    return () => { eventSourceRef.current?.close(); };
+    if (saved) {
+      setToken(saved);
+      fetchProgress(saved);
+    }
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current);
+    };
   }, []);
 
-  const loadStatus = async (t: string) => {
+  const fetchProgress = useCallback(async (t?: string) => {
     try {
-      const res = await fetch(`${API_BASE}/api/admin/docs/status`, {
-        headers: { Authorization: `Bearer ${t}` },
+      const res = await fetch(`${API_BASE}/api/admin/scrape/docs/progress`, {
+        headers: { Authorization: `Bearer ${t || token}` },
       });
-      if (res.ok) setStatus(await res.json());
+      if (res.ok) {
+        const data = await res.json();
+        setProgress(data);
+      }
     } catch {}
-  };
+  }, [token]);
 
-  const handleTrigger = async () => {
-    setTriggering(true);
+  // Poll every 15 seconds when running
+  useEffect(() => {
+    if (progress?.running) {
+      pollRef.current = setInterval(() => fetchProgress(), 15000);
+    } else if (pollRef.current) {
+      clearInterval(pollRef.current);
+      pollRef.current = null;
+    }
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current);
+    };
+  }, [progress?.running, fetchProgress]);
+
+  const handleStart = async () => {
+    setMessage('');
     try {
-      const res = await fetch(`${API_BASE}/api/admin/docs/trigger`, {
+      const res = await fetch(`${API_BASE}/api/admin/scrape/docs/start`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
-      setMessage(data.message || 'Document scraping triggered');
-      startSSE();
-      setTimeout(() => loadStatus(token), 5000);
-    } catch { setMessage('Failed to trigger'); }
-    setTriggering(false);
+      setMessage(data.status === 'already_running' ? 'Already running' : 'Document scraper started');
+      setTimeout(() => fetchProgress(), 1000);
+    } catch {
+      setMessage('Failed to start');
+    }
   };
 
-  const startSSE = () => {
-    if (eventSourceRef.current) eventSourceRef.current.close();
-
-    const es = new EventSource(`${API_BASE}/api/admin/stream?token=${token}`);
-    eventSourceRef.current = es;
-
-    es.onmessage = (event) => {
-      setSseMessages((prev) => [...prev.slice(-50), event.data]);
-    };
-
-    es.onerror = () => {
-      es.close();
-    };
+  const handleStop = async () => {
+    setMessage('');
+    try {
+      await fetch(`${API_BASE}/api/admin/scrape/docs/stop`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setMessage('Document scraper stopped');
+      setTimeout(() => fetchProgress(), 1000);
+    } catch {
+      setMessage('Failed to stop');
+    }
   };
 
-  const scrapedPct = status
-    ? Math.round((status.total_scraped / Math.max(status.total_applications, 1)) * 100)
-    : 0;
-
-  const estimatedHours = status && status.total_applications - status.total_scraped > 0
-    ? Math.round(((status.total_applications - status.total_scraped) * 3) / 3600)
-    : 0;
+  const isRunning = progress?.running ?? false;
 
   return (
     <main style={{ minHeight: '100vh', background: '#f9f8f6' }}>
@@ -92,64 +116,73 @@ export default function DocsPage() {
           <ArrowLeft className="w-4 h-4" /> Back to Admin
         </Link>
 
-        <h1 style={{ fontSize: '1.5rem', fontWeight: '600', marginBottom: '1.5rem', fontFamily: "'Playfair Display', serif" }}>Document Scraping</h1>
+        <h1 style={{ fontSize: '1.5rem', fontWeight: '600', marginBottom: '1.5rem', fontFamily: "'Playfair Display', serif" }}>
+          <FileText style={{ display: 'inline', width: '1.25rem', height: '1.25rem', marginRight: '0.5rem', verticalAlign: 'middle' }} />
+          Document Scraping
+        </h1>
 
-        {/* Status cards */}
-        {status && (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4" style={{ marginBottom: '1.25rem' }}>
-            <div className="stat-card">
-              <div className="stat-value text-2xl">{status.total_applications?.toLocaleString()}</div>
-              <div className="stat-label">Total Applications</div>
+        {/* Live Status */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4" style={{ marginBottom: '1.25rem' }}>
+          <div className="stat-card">
+            <div className="stat-value text-2xl">
+              {isRunning
+                ? <span style={{ color: '#22c55e' }}>● Running</span>
+                : <span style={{ color: '#ef4444' }}>● Stopped</span>
+              }
             </div>
-            <div className="stat-card">
-              <div className="stat-value text-2xl">{status.total_scraped?.toLocaleString()}</div>
-              <div className="stat-label">Docs Scraped</div>
-              <div className="progress-bar">
-                <div className="progress-fill" style={{ width: `${scrapedPct}%` }} />
-              </div>
-              <div className="text-xs text-white/40 mt-1">{scrapedPct}%</div>
-            </div>
-            <div className="stat-card">
-              <div className="stat-value text-2xl">{status.total_documents?.toLocaleString()}</div>
-              <div className="stat-label">Documents Found</div>
-            </div>
-            <div className="stat-card">
-              <div className="stat-value text-2xl">~{estimatedHours}h</div>
-              <div className="stat-label">Est. Remaining</div>
-            </div>
+            <div className="stat-label">Status</div>
           </div>
-        )}
+          <div className="stat-card">
+            <div className="stat-value text-2xl">{progress?.scraped_today?.toLocaleString() ?? '0'}</div>
+            <div className="stat-label">Apps Scraped Today</div>
+          </div>
+          <div className="stat-card">
+            <div className="stat-value text-2xl">{progress?.documents_found_today?.toLocaleString() ?? '0'}</div>
+            <div className="stat-label">Documents Found Today</div>
+          </div>
+          <div className="stat-card">
+            <div className="stat-value text-lg" style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '0.85rem', wordBreak: 'break-all' }}>
+              {progress?.last_ref || '—'}
+            </div>
+            <div className="stat-label">Last Ref</div>
+          </div>
+        </div>
 
         {/* Controls */}
         <div className="admin-card" style={{ marginBottom: '1.25rem', padding: '1.5rem' }}>
           <h3 className="text-base font-semibold mb-4">Scraper Controls</h3>
           <p className="text-sm text-[var(--text-secondary)] mb-4">
-            Scrapes document metadata (names, types, download URLs) from both the Agile Applications portal (pre-2024) and the National Planning Portal (post-2024).
-            Rate limited to 1 request every 3 seconds.
+            Scrapes document metadata (names, types, download URLs) from ePlanning.ie
+            and Agile Applications portals using <code>link_app_details</code> from the database.
+            Rate limited to 1 request every 3 seconds. Prioritises 2023+ applications.
           </p>
           <div className="flex items-center gap-4">
-            <button className="btn-primary" onClick={handleTrigger} disabled={triggering}>
-              {triggering ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
-              {triggering ? 'Running...' : 'Run Document Scraping'}
+            {!isRunning ? (
+              <button className="btn-primary" onClick={handleStart}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}>
+                <Play className="w-4 h-4" /> Start Document Scraper
+              </button>
+            ) : (
+              <button className="btn-primary" onClick={handleStop}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', background: '#ef4444' }}>
+                <Square className="w-4 h-4" /> Stop Scraper
+              </button>
+            )}
+            <button className="text-sm text-[var(--text-muted)]" onClick={() => fetchProgress()}
+              style={{ border: 'none', background: 'none', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
+              <RefreshCw className="w-3 h-3" /> Refresh
             </button>
-            <div className="text-sm text-[var(--text-muted)]">
-              Rate limit: 1 req / 3 seconds
-            </div>
           </div>
           {message && <p className="text-sm text-green-600 mt-3">{message}</p>}
+          {progress?.error && (
+            <p className="text-sm text-red-600 mt-3">Error: {progress.error}</p>
+          )}
+          {progress?.started_at && (
+            <p className="text-xs text-[var(--text-muted)] mt-2">
+              Started: {new Date(progress.started_at).toLocaleString()}
+            </p>
+          )}
         </div>
-
-        {/* SSE Live Feed */}
-        {sseMessages.length > 0 && (
-          <div className="admin-card">
-            <h3 className="text-base font-semibold mb-4">Live Progress</h3>
-            <div className="bg-[var(--charcoal)] rounded-lg p-4 max-h-64 overflow-y-auto font-mono text-xs text-green-400">
-              {sseMessages.map((msg, i) => (
-                <div key={i} className="py-0.5">{msg}</div>
-              ))}
-            </div>
-          </div>
-        )}
       </div>
     </main>
   );

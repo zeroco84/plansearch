@@ -654,6 +654,51 @@ async def scrape_status(
     )
 
 
+# ── Document Scraper Controls ───────────────────────────────────────────
+
+_doc_scraper_task = None
+
+
+@router.post("/admin/scrape/docs/start")
+async def start_doc_scraper(
+    _token: str = Depends(verify_admin_token),
+):
+    """Start the continuous document scraper loop."""
+    from app.workers.doc_scraper import run_doc_scraper_loop, doc_scraper_progress
+
+    global _doc_scraper_task
+    if doc_scraper_progress["running"]:
+        return {"status": "already_running", "progress": doc_scraper_progress}
+
+    _doc_scraper_task = asyncio.create_task(run_doc_scraper_loop())
+    return {"status": "started"}
+
+
+@router.post("/admin/scrape/docs/stop")
+async def stop_doc_scraper(
+    _token: str = Depends(verify_admin_token),
+):
+    """Stop the continuous document scraper loop."""
+    from app.workers.doc_scraper import doc_scraper_progress
+
+    global _doc_scraper_task
+    doc_scraper_progress["running"] = False
+    if _doc_scraper_task:
+        _doc_scraper_task.cancel()
+        _doc_scraper_task = None
+    return {"status": "stopped"}
+
+
+@router.get("/admin/scrape/docs/progress")
+async def get_doc_scraper_progress(
+    _token: str = Depends(verify_admin_token),
+):
+    """Get document scraper progress."""
+    from app.workers.doc_scraper import doc_scraper_progress
+
+    return doc_scraper_progress
+
+
 # ── Logs ────────────────────────────────────────────────────────────────
 
 @router.get("/admin/logs")
