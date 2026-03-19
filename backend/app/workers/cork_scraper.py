@@ -4,11 +4,14 @@ Scrapes planning applications from planning.corkcoco.ie/ePlan.
 Cork County Council is the only major ROI council missing from NPAD.
 
 Two modes:
-- Continuous: scrapes recent 42-day windows regularly
-- Backfill: walks back through 2 years in 42-day chunks
+- Continuous: POST to searchresults with 7-day window, run every 6 hours
+- Backfill: enumerate refs (YY/NNNNN) and fetch detail pages directly
 
-Rate limiting: 2s between requests, off-peak hours only (8pm–8am Irish time).
-Geocoding: Cork records have no coordinates — the geocoder picks them up automatically.
+The ePlan portal uses POST requests with CSRF tokens. It only supports
+fixed time windows (7, 14, 28, 35, 42 days), not arbitrary date ranges.
+
+Rate limiting: 2s between requests.
+Geocoding: Cork records have no coordinates — the geocoder picks them up.
 
 Data licence: LGMA public planning register.
 """
@@ -32,17 +35,15 @@ logger = logging.getLogger(__name__)
 # ── Constants ────────────────────────────────────────────────────────────
 
 EPLAN_BASE = "https://planning.corkcoco.ie/ePlan"
-RECEIVED_URL = f"{EPLAN_BASE}/SearchListing/RECEIVED"
-DECIDED_URL = f"{EPLAN_BASE}/SearchListing/MADE"
+LISTING_URL = f"{EPLAN_BASE}/SearchListing/RECEIVED"
+SEARCH_RESULTS_URL = f"{EPLAN_BASE}/searchresults"
 DETAIL_URL_TPL = f"{EPLAN_BASE}/AppFileRefDetails/{{internal_id}}/0"
 
 USER_AGENT = "PlanSearch/1.0 (+https://plansearch.cc; planning research)"
 RATE_LIMIT_SECONDS = 2.0
-BATCH_PAUSE_SECONDS = 10
-MAX_WINDOW_DAYS = 42  # ePlan maximum per request
 
-# Irish timezone for off-peak check
-IRISH_TZ = timezone(timedelta(hours=0))  # UTC ≈ Irish winter; summer is UTC+1
+# ePlan only supports these fixed windows (days from today)
+VALID_TIME_LIMITS = [7, 14, 28, 35, 42]
 
 # ── Progress tracker ─────────────────────────────────────────────────────
 
@@ -57,49 +58,81 @@ cork_scraper_progress = {
     "total_windows": 0,
     "started_at": None,
     "error": None,
+    "backfill_year": None,
+    "backfill_ref_num": None,
 }
 
 
-# ── Off-peak check ──────────────────────────────────────────────────────
+# ── CSRF + POST listing ────────────────────────────────────────────────
 
-def is_off_peak() -> bool:
-    """Check if current time is within off-peak hours (8pm–8am Irish time).
+async def get_csrf_token(client: httpx.AsyncClient) -> Optional[str]:
+    """GET the listing page to extract the CSRF token."""
+    resp = await client.get(
+        LISTING_URL,
+        headers={"User-Agent": USER_AGENT},
+        follow_redirects=True,
+        timeout=30.0,
+    )
+    resp.raise_for_status()
+    soup = BeautifulSoup(resp.text, "html.parser")
 
-    During regular continuous scraping we honour this; backfill can override.
-    """
-    now = datetime.now(timezone.utc)
-    irish_hour = (now.hour) % 24  # UTC ≈ Irish time (close enough)
-    return irish_hour >= 20 or irish_hour < 8
+    # CSRF token is in the second form on the page (the listing form)
+    forms = soup.find_all("form")
+    for form in reversed(forms):  # Try last form first (listing form)
+        token_input = form.find("input", {"name": "__RequestVerificationToken"})
+        if token_input:
+            return token_input["value"]
 
+    # Fallback: search entire page
+    token_input = soup.find("input", {"name": "__RequestVerificationToken"})
+    if token_input:
+        return token_input["value"]
 
-# ── HTML Scraping ────────────────────────────────────────────────────────
+    return None
+
 
 async def fetch_listing_page(
     client: httpx.AsyncClient,
-    listing_url: str,
-    date_from: date,
-    date_to: date,
+    app_status: str,
+    time_limit: int,
+    csrf_token: str,
 ) -> str:
-    """Fetch a listing page from the Cork ePlan portal."""
-    params = {
-        "from": date_from.strftime("%d/%m/%Y"),
-        "to": date_to.strftime("%d/%m/%Y"),
-    }
-    response = await client.get(
-        listing_url,
-        params=params,
-        headers={"User-Agent": USER_AGENT},
-        timeout=30.0,
-        follow_redirects=True,
-    )
-    response.raise_for_status()
-    return response.text
+    """POST to /ePlan/searchresults to get listings.
 
+    app_status: "0" = Received, "1" = Decided, "2" = Due
+    time_limit: 7, 14, 28, 35, or 42 (days from today)
+    """
+    form_data = {
+        "__RequestVerificationToken": csrf_token,
+        "AppStatus": app_status,
+        "CheckBoxList[0].Id": "0",
+        "CheckBoxList[0].Name": "Cork County Council",
+        "CheckBoxList[0].IsSelected": "true",
+        "RdoTimeLimit": str(time_limit),
+        "SearchType": "Listing",
+        "CountyTownCount": "1",
+    }
+
+    resp = await client.post(
+        SEARCH_RESULTS_URL,
+        data=form_data,
+        headers={
+            "User-Agent": USER_AGENT,
+            "Referer": LISTING_URL,
+        },
+        follow_redirects=True,
+        timeout=60.0,
+    )
+    resp.raise_for_status()
+    return resp.text
+
+
+# ── HTML parsing ─────────────────────────────────────────────────────────
 
 def parse_listing_html(html: str) -> list[dict]:
-    """Parse Cork ePlan listing page HTML to extract application rows.
+    """Parse Cork ePlan listing/search results page.
 
-    Table columns (confirmed from live inspection):
+    The table has columns:
     0: File Number (internal ID, linked)
     1: Application Status
     2: Decision Due Date
@@ -114,26 +147,25 @@ def parse_listing_html(html: str) -> list[dict]:
     soup = BeautifulSoup(html, "html.parser")
     records = []
 
-    table = soup.find("table")
+    # Try class-based table first, then any table
+    table = soup.find("table", {"class": "tablesorter"}) or soup.find("table")
     if not table:
         return records
 
     rows = table.find_all("tr")
     for row in rows:
         cells = row.find_all("td")
-        if len(cells) < 9:
+        if len(cells) < 4:
             continue
 
-        # Extract internal ID from href
         link = cells[0].find("a")
         if not link:
             continue
 
         href = link.get("href", "")
-        internal_id = None
         file_ref = link.get_text(strip=True)
+        internal_id = None
 
-        # Pattern: /ePlan/AppFileRefDetails/254299/0
         id_match = re.search(r"/AppFileRefDetails/(\d+)/", href)
         if id_match:
             internal_id = int(id_match.group(1))
@@ -141,7 +173,6 @@ def parse_listing_html(html: str) -> list[dict]:
         if not internal_id and not file_ref:
             continue
 
-        # Extract fields from cells
         record = {
             "file_ref": file_ref,
             "internal_id": internal_id,
@@ -159,6 +190,97 @@ def parse_listing_html(html: str) -> list[dict]:
     return records
 
 
+def parse_detail_page(html: str) -> Optional[dict]:
+    """Parse a single Cork ePlan detail page (AppFileRefDetails).
+
+    Used by backfill mode to scrape individual applications by ref.
+    """
+    soup = BeautifulSoup(html, "html.parser")
+
+    # Check it's not an error/empty page
+    title = soup.find("title")
+    if title and "error" in title.get_text(strip=True).lower():
+        return None
+
+    # Look for the application details — typically in definition lists or tables
+    record = {}
+
+    # Try to find the file reference from the breadcrumb or heading
+    heading = soup.find("h2") or soup.find("h1")
+    if heading:
+        heading_text = heading.get_text(strip=True)
+        # Heading typically contains the ref like "25/12345"
+        ref_match = re.search(r"(\d{2}/\d{3,6})", heading_text)
+        if ref_match:
+            record["file_ref"] = ref_match.group(1)
+
+    # Extract from detail row pairs (label + value)
+    # Cork ePlan uses various structures — try multiple approaches
+    detail_rows = soup.find_all("div", {"class": "row"})
+    for row in detail_rows:
+        label_el = row.find("label") or row.find(class_=re.compile(r"label|field-name", re.I))
+        value_el = row.find("span") or row.find("p") or row.find(class_=re.compile(r"value|field-value", re.I))
+        if not label_el or not value_el:
+            continue
+
+        label = label_el.get_text(strip=True).lower()
+        value = value_el.get_text(strip=True)
+
+        if not value or value in ("N/A", ""):
+            continue
+
+        if "file number" in label or "file ref" in label:
+            record["file_ref"] = value
+        elif "applicant" in label:
+            record["applicant_name"] = value
+        elif "address" in label or "location" in label:
+            record["address"] = value
+        elif "description" in label or "proposal" in label or "development" in label:
+            record["description"] = value
+        elif "received" in label or "lodged" in label:
+            record["received_date"] = value
+        elif "decision date" in label:
+            record["decision_date"] = value
+        elif "decision" in label:
+            record["decision_code"] = value
+        elif "status" in label:
+            record["application_status"] = value
+
+    # Also try <dl> definition lists
+    for dl in soup.find_all("dl"):
+        terms = dl.find_all("dt")
+        defs = dl.find_all("dd")
+        for dt, dd in zip(terms, defs):
+            label = dt.get_text(strip=True).lower()
+            value = dd.get_text(" ", strip=True)
+            if not value or value in ("N/A", ""):
+                continue
+
+            if "file number" in label or "file ref" in label:
+                record["file_ref"] = value
+            elif "applicant" in label:
+                record["applicant_name"] = value
+            elif "address" in label or "location" in label:
+                record["address"] = value
+            elif "description" in label or "proposal" in label or "development" in label:
+                record["description"] = value
+            elif "received" in label or "lodged" in label:
+                record["received_date"] = value
+            elif "decision date" in label:
+                record["decision_date"] = value
+            elif "decision" in label:
+                record["decision_code"] = value
+            elif "status" in label:
+                record["application_status"] = value
+
+    if not record.get("file_ref") and not record.get("description"):
+        return None
+
+    return record
+
+
+# ── Date / decision helpers ──────────────────────────────────────────────
+
 def parse_cork_date(val: str) -> Optional[date]:
     """Parse Cork ePlan date format: DD/MM/YYYY."""
     if not val or not val.strip():
@@ -173,7 +295,7 @@ def normalise_cork_decision(decision_code: str, app_status: str) -> Optional[str
     """Normalise Cork ePlan decision to standard format."""
     if not decision_code:
         if app_status and "DECISION" in (app_status or "").upper():
-            return None  # Will fill from decision_code
+            return None
         return None
 
     dc = decision_code.strip().upper()
@@ -271,23 +393,32 @@ async def upsert_cork_record(session_factory, record: dict) -> bool:
         return False
 
 
-# ── Scrape a date window ────────────────────────────────────────────────
+# ── Scrape via POST (listing mode) ──────────────────────────────────────
 
-async def scrape_window(
+async def scrape_listing_window(
     session_factory,
     client: httpx.AsyncClient,
-    date_from: date,
-    date_to: date,
+    time_limit: int,
 ) -> dict:
-    """Scrape both received and decided listings for a date window."""
+    """Scrape both Received and Decided listings for a time window.
+
+    time_limit: 7, 14, 28, 35, or 42 (days from today)
+    """
     stats = {"received": 0, "decided": 0, "errors": 0, "upserted": 0}
 
-    for listing_url, listing_type in [
-        (RECEIVED_URL, "received"),
-        (DECIDED_URL, "decided"),
-    ]:
+    # Get CSRF token first
+    csrf_token = await get_csrf_token(client)
+    if not csrf_token:
+        logger.error("Cork: could not get CSRF token")
+        stats["errors"] += 1
+        return stats
+
+    await asyncio.sleep(RATE_LIMIT_SECONDS)
+
+    # app_status "0" = Received, "1" = Decided
+    for app_status, listing_type in [("0", "received"), ("1", "decided")]:
         try:
-            html = await fetch_listing_page(client, listing_url, date_from, date_to)
+            html = await fetch_listing_page(client, app_status, time_limit, csrf_token)
             records = parse_listing_html(html)
             stats[listing_type] = len(records)
 
@@ -304,8 +435,6 @@ async def scrape_window(
 
                 cork_scraper_progress["scraped_today"] += 1
 
-                # Rate limit between individual record inserts isn't needed,
-                # but we do rate-limit between HTTP requests
             await asyncio.sleep(RATE_LIMIT_SECONDS)
 
         except httpx.HTTPStatusError as e:
@@ -314,7 +443,7 @@ async def scrape_window(
                 logger.warning("Cork ePlan returned 429 — backing off 1 hour")
                 await asyncio.sleep(3600)
             elif status == 503:
-                logger.warning("Cork ePlan returned 503 — stopping, retry in 4 hours")
+                logger.warning("Cork ePlan returned 503 — stopping, retry later")
                 cork_scraper_progress["error"] = "503 Service Unavailable — retry later"
                 raise
             else:
@@ -322,15 +451,66 @@ async def scrape_window(
                 stats["errors"] += 1
 
         except Exception as e:
-            logger.error(f"Cork scrape error ({listing_type} {date_from}→{date_to}): {e}")
+            logger.error(f"Cork scrape error ({listing_type}, {time_limit}d window): {e}")
             stats["errors"] += 1
 
     logger.info(
-        f"Cork window {date_from}→{date_to}: "
+        f"Cork {time_limit}d window: "
         f"received={stats['received']}, decided={stats['decided']}, "
         f"upserted={stats['upserted']}, errors={stats['errors']}"
     )
     return stats
+
+
+# ── Scrape detail page by ref (backfill mode) ───────────────────────────
+
+async def scrape_detail_by_ref(
+    session_factory,
+    client: httpx.AsyncClient,
+    ref: str,
+) -> bool:
+    """Fetch a single application's detail page by its ref (e.g., '25/12345').
+
+    Returns True if a record was found and upserted.
+    """
+    # Cork detail pages are at /ePlan/AppFileRefDetails/{ref}/0
+    # The ref goes directly in the URL
+    url = f"{EPLAN_BASE}/AppFileRefDetails/{ref}/0"
+
+    try:
+        resp = await client.get(
+            url,
+            headers={"User-Agent": USER_AGENT},
+            follow_redirects=True,
+            timeout=30.0,
+        )
+
+        if resp.status_code == 404:
+            return False
+        if resp.status_code != 200:
+            logger.debug(f"Cork detail {ref}: HTTP {resp.status_code}")
+            return False
+
+        # Check if we got a valid page (not a redirect to error)
+        if len(resp.text) < 500:
+            return False
+
+        record = parse_detail_page(resp.text)
+        if not record:
+            return False
+
+        # Ensure ref is set
+        if not record.get("file_ref"):
+            record["file_ref"] = ref
+
+        ok = await upsert_cork_record(session_factory, record)
+        return ok
+
+    except httpx.HTTPStatusError:
+        return False
+    except Exception as e:
+        logger.error(f"Cork detail scrape error for {ref}: {e}")
+        return False
 
 
 # ── Continuous mode ──────────────────────────────────────────────────────
@@ -338,8 +518,8 @@ async def scrape_window(
 async def run_cork_continuous_loop():
     """Run the Cork scraper in continuous mode.
 
-    Scrapes the most recent 42-day window every 4 hours during off-peak.
-    ~12,500-15,000 apps/year for Cork County.
+    Uses 7-day window via POST, runs every 6 hours.
+    Overlap handles duplicates via upsert (ON CONFLICT).
     """
     session_factory = async_sessionmaker(engine, expire_on_commit=False)
 
@@ -350,30 +530,18 @@ async def run_cork_continuous_loop():
     cork_scraper_progress["records_found_today"] = 0
     cork_scraper_progress["error"] = None
 
-    logger.info("Cork County scraper started — continuous mode")
+    logger.info("Cork County scraper started — continuous mode (7-day POST window)")
 
     try:
         async with httpx.AsyncClient() as client:
             while cork_scraper_progress["running"]:
-                # Wait for off-peak hours
-                if not is_off_peak():
-                    logger.info("Cork scraper: outside off-peak hours, sleeping 1 hour")
-                    await asyncio.sleep(3600)
-                    continue
+                cork_scraper_progress["current_window"] = "Last 7 days (POST)"
 
-                today = date.today()
-                date_from = today - timedelta(days=MAX_WINDOW_DAYS)
-                date_to = today
+                await scrape_listing_window(session_factory, client, time_limit=7)
 
-                cork_scraper_progress["current_window"] = (
-                    f"{date_from.isoformat()} → {date_to.isoformat()}"
-                )
-
-                await scrape_window(session_factory, client, date_from, date_to)
-
-                # Sleep 4 hours between continuous scrapes
-                logger.info("Cork scraper: sleeping 4 hours until next run")
-                for _ in range(240):  # Check every minute if still running
+                # Sleep 6 hours between runs
+                logger.info("Cork scraper: sleeping 6 hours until next run")
+                for _ in range(360):  # Check every minute if still running
                     if not cork_scraper_progress["running"]:
                         break
                     await asyncio.sleep(60)
@@ -392,11 +560,15 @@ async def run_cork_continuous_loop():
 # ── Backfill mode ────────────────────────────────────────────────────────
 
 async def run_cork_backfill():
-    """Run 2-year backfill of Cork County applications.
+    """Run backfill of Cork County applications by enumerating refs.
 
-    Walks backwards in 42-day windows from today to 2 years ago.
-    2 years / 42 days ≈ 18 windows × 2 (received + decided) = ~36 HTTP requests.
-    Total: ~25,000–30,000 records.
+    Cork refs follow YY/NNNNN format. We enumerate:
+    - 23/00001 to 23/15000  (~2023)
+    - 24/00001 to 24/15000  (~2024)
+    - 25/00001 to 25/15000  (~2025)
+
+    This bypasses the listing page entirely, using detail page scraping.
+    ~45,000 requests total, at 2s rate limit ≈ 25 hours.
     """
     session_factory = async_sessionmaker(engine, expire_on_commit=False)
 
@@ -406,39 +578,72 @@ async def run_cork_backfill():
     cork_scraper_progress["scraped_today"] = 0
     cork_scraper_progress["records_found_today"] = 0
     cork_scraper_progress["error"] = None
-
-    today = date.today()
-    two_years_ago = today - timedelta(days=730)
-
-    # Generate 42-day windows walking backwards
-    windows = []
-    current_end = today
-    while current_end > two_years_ago:
-        current_start = max(current_end - timedelta(days=MAX_WINDOW_DAYS), two_years_ago)
-        windows.append((current_start, current_end))
-        current_end = current_start - timedelta(days=1)
-
-    cork_scraper_progress["total_windows"] = len(windows)
     cork_scraper_progress["windows_done"] = 0
 
-    logger.info(f"Cork backfill starting: {len(windows)} windows, ~2 years")
+    # Year ranges to enumerate — Cork refs are YY/NNNNN
+    years = [23, 24, 25]
+    max_ref_per_year = 15000
+    cork_scraper_progress["total_windows"] = len(years) * max_ref_per_year
+
+    logger.info(
+        f"Cork backfill starting: {len(years)} years × {max_ref_per_year} refs "
+        f"= {len(years) * max_ref_per_year} refs to try"
+    )
+
+    consecutive_misses = 0
+    MAX_CONSECUTIVE_MISSES = 500  # If 500 in a row are empty, skip to next year
 
     try:
         async with httpx.AsyncClient() as client:
-            for i, (w_start, w_end) in enumerate(windows):
+            for year in years:
                 if not cork_scraper_progress["running"]:
                     break
 
-                cork_scraper_progress["current_window"] = (
-                    f"{w_start.isoformat()} → {w_end.isoformat()}"
+                cork_scraper_progress["backfill_year"] = year
+                consecutive_misses = 0
+
+                for ref_num in range(1, max_ref_per_year + 1):
+                    if not cork_scraper_progress["running"]:
+                        break
+
+                    ref = f"{year}/{ref_num:05d}"
+                    cork_scraper_progress["backfill_ref_num"] = ref_num
+                    cork_scraper_progress["current_window"] = f"Ref {ref}"
+
+                    found = await scrape_detail_by_ref(session_factory, client, ref)
+
+                    if found:
+                        consecutive_misses = 0
+                        cork_scraper_progress["records_found_today"] += 1
+                        cork_scraper_progress["last_ref"] = make_cork_reg_ref(ref)
+                    else:
+                        consecutive_misses += 1
+
+                    cork_scraper_progress["scraped_today"] += 1
+                    cork_scraper_progress["windows_done"] += 1
+
+                    # Skip to next year if too many consecutive misses
+                    if consecutive_misses >= MAX_CONSECUTIVE_MISSES:
+                        logger.info(
+                            f"Cork backfill: {MAX_CONSECUTIVE_MISSES} consecutive "
+                            f"misses at {ref}, skipping to next year"
+                        )
+                        break
+
+                    # Rate limit
+                    await asyncio.sleep(RATE_LIMIT_SECONDS)
+
+                    # Log progress every 500 refs
+                    if ref_num % 500 == 0:
+                        logger.info(
+                            f"Cork backfill: year={year}, ref={ref_num}/{max_ref_per_year}, "
+                            f"found={cork_scraper_progress['records_found_today']}"
+                        )
+
+                logger.info(
+                    f"Cork backfill year {year} complete: "
+                    f"found so far = {cork_scraper_progress['records_found_today']}"
                 )
-
-                await scrape_window(session_factory, client, w_start, w_end)
-
-                cork_scraper_progress["windows_done"] = i + 1
-
-                # Rate limit between windows
-                await asyncio.sleep(RATE_LIMIT_SECONDS * 2)
 
     except asyncio.CancelledError:
         logger.info("Cork backfill cancelled")
@@ -448,7 +653,9 @@ async def run_cork_backfill():
     finally:
         cork_scraper_progress["running"] = False
         cork_scraper_progress["mode"] = None
+        cork_scraper_progress["backfill_year"] = None
+        cork_scraper_progress["backfill_ref_num"] = None
         logger.info(
             f"Cork backfill complete: {cork_scraper_progress['records_found_today']} records, "
-            f"{cork_scraper_progress['windows_done']}/{len(windows)} windows"
+            f"{cork_scraper_progress['windows_done']}/{cork_scraper_progress['total_windows']} refs tried"
         )
