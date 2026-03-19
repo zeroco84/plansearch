@@ -380,9 +380,7 @@ export default function ApplicationPage() {
               {app.site_area_ha && app.site_area_ha > 0 && (
                 <div style={{ background: 'var(--warm-white)', padding: '0.75rem', borderRadius: '8px' }}>
                   <div style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--teal)' }}>
-                    {app.site_area_ha < 1
-                      ? `${(app.site_area_ha * 10000).toFixed(0)} m²`
-                      : `${app.site_area_ha.toFixed(2)} ha`}
+                    {app.site_area_ha.toFixed(2)} ha
                   </div>
                   <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Site Area</div>
                 </div>
