@@ -209,7 +209,7 @@ export default function Home() {
             margin: '0 0 0.75rem',
           }}>
             Ireland&apos;s planning pipeline.{' '}
-            <span style={{ color: '#2dd4bf' }}>All of it.</span>
+            <span style={{ color: '#2dd4bf', fontStyle: 'italic' }}>All of it.</span>
           </h1>
           <p style={{
             color: 'rgba(255,255,255,0.6)',
@@ -219,11 +219,11 @@ export default function Home() {
             letterSpacing: '-0.01em',
             lineHeight: 1.4,
           }}>
-            Find your next project before anyone else.
+            Find your next project before anyone else. Free to search.
           </p>
         </div>
         <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: '0.7rem', letterSpacing: '0.18em', textTransform: 'uppercase', marginBottom: '2rem', textAlign: 'center', width: '100%', padding: '0 1rem' }}>
-          600,000+ planning applications · 43 authorities · All island · AI-classified
+          600,000+ planning applications, commencement notices, DACs and FSCs · 43 authorities · All island · AI-classified
         </p>
         <div style={{ width: '100%', maxWidth: 'min(680px, 90vw)' }}>
           <div className="relative">
