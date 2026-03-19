@@ -197,6 +197,31 @@ export default function Home() {
         className="flex-1 flex flex-col items-center justify-center"
         style={{ background: 'linear-gradient(160deg, #0d1117 0%, #111827 50%, #0f2027 100%)', padding: '3rem 1.5rem', minHeight: '70vh' }}
       >
+        {/* Hero headline */}
+        <div style={{ textAlign: 'center', marginBottom: '2rem', maxWidth: '700px' }}>
+          <h1 style={{
+            color: '#ffffff',
+            fontSize: 'clamp(2.2rem, 5vw, 3.5rem)',
+            fontWeight: '700',
+            fontFamily: "'Playfair Display', serif",
+            letterSpacing: '-0.02em',
+            lineHeight: 1.1,
+            margin: '0 0 0.75rem',
+          }}>
+            Ireland&apos;s planning pipeline.{' '}
+            <span style={{ color: '#2dd4bf' }}>All of it.</span>
+          </h1>
+          <p style={{
+            color: 'rgba(255,255,255,0.6)',
+            fontSize: 'clamp(1rem, 2vw, 1.2rem)',
+            fontWeight: '400',
+            margin: 0,
+            letterSpacing: '-0.01em',
+            lineHeight: 1.4,
+          }}>
+            Find your next project before anyone else.
+          </p>
+        </div>
         <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: '0.7rem', letterSpacing: '0.18em', textTransform: 'uppercase', marginBottom: '2rem', textAlign: 'center', width: '100%', padding: '0 1rem' }}>
           600,000+ planning applications · 43 authorities · All island · AI-classified
         </p>
