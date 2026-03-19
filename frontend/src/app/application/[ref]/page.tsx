@@ -377,12 +377,12 @@ export default function ApplicationPage() {
           <div className="detail-section fade-in" style={{ animationDelay: '150ms' }}>
             <h3>KEY FACTS</h3>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '0.75rem' }}>
-              {app.area_of_site && (
+              {app.area_of_site && app.area_of_site > 0 && (app.area_of_site / 10000) <= 500 && (
                 <div style={{ background: 'var(--warm-white)', padding: '0.75rem', borderRadius: '8px' }}>
                   <div style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--teal)' }}>
-                    {app.area_of_site >= 1
-                      ? `${app.area_of_site.toFixed(2)} ha`
-                      : `${Math.round(app.area_of_site * 10000).toLocaleString()} m²`}
+                    {(app.area_of_site / 10000) >= 0.01
+                      ? `${(app.area_of_site / 10000).toFixed(2)} ha`
+                      : `${Math.round(app.area_of_site).toLocaleString()} m²`}
                   </div>
                   <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Site Area</div>
                 </div>
