@@ -7,8 +7,10 @@ GET /api/search — AI-powered intent parsing + structured database query.
   - Composable with manual advanced filter overrides
 """
 
+import hashlib
 import json
 import logging
+import os
 import time
 from typing import Optional, List
 
@@ -177,7 +179,7 @@ async def _get_claude_api_key(db: AsyncSession) -> Optional[str]:
 
 
 async def parse_search_intent(query: str, db: AsyncSession) -> dict:
-    """Use Claude Haiku to extract structured search intent from natural language."""
+    """Use Claude Haiku to extract structured search intent — with Redis caching."""
     fallback = {
         "dev_category": None,
         "planning_authorities": [],
@@ -189,6 +191,27 @@ async def parse_search_intent(query: str, db: AsyncSession) -> dict:
     if len(query.strip()) < 3:
         return fallback
 
+    # Skip AI for single-word queries — likely just a location, fallback handles it
+    if len(query.strip().split()) == 1:
+        return _fallback_parse(query)
+
+    # Cache key — hash the normalised query
+    cache_key = f"search_intent:{hashlib.md5(query.strip().lower().encode()).hexdigest()}"
+
+    # Try Redis cache first
+    redis_url = os.environ.get("REDIS_URL", "")
+    if redis_url:
+        try:
+            import redis.asyncio as aioredis
+            r = aioredis.from_url(redis_url)
+            cached = await r.get(cache_key)
+            await r.aclose()
+            if cached:
+                return json.loads(cached)
+        except Exception:
+            pass  # Redis unavailable — proceed without cache
+
+    # Cache miss — call Haiku
     api_key = await _get_claude_api_key(db)
     if not api_key:
         logger.warning("No Claude API key — falling back to text search")
@@ -235,6 +258,16 @@ async def parse_search_intent(query: str, db: AsyncSession) -> dict:
             # Validate decision
             if intent.get("decision") and intent["decision"] not in ("granted", "refused", "pending"):
                 intent["decision"] = None
+
+            # Store in Redis for 24 hours
+            if redis_url:
+                try:
+                    import redis.asyncio as aioredis
+                    r = aioredis.from_url(redis_url)
+                    await r.setex(cache_key, 86400, json.dumps(intent))  # 24 hour TTL
+                    await r.aclose()
+                except Exception:
+                    pass
 
             return intent
 
