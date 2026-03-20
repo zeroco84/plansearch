@@ -81,9 +81,13 @@ export default function SignificantPage() {
               <TrendingUp className="w-5 h-5" />
               <span className="hidden sm:inline">Significant</span>
             </Link>
-            <Link href="/insights" className="nav-link">
+            <Link href="/analytics" className="nav-link">
+              <BarChart3 className="w-5 h-5" />
+              <span className="hidden sm:inline">Analytics</span>
+            </Link>
+            <Link href="/blog" className="nav-link">
               <BookOpen className="w-5 h-5" />
-              <span className="hidden sm:inline">Insights</span>
+              <span className="hidden sm:inline">Blog</span>
             </Link>
             <Link href="/alerts" className="nav-link">
               <Bell className="w-5 h-5" />

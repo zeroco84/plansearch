@@ -139,7 +139,8 @@ function AppNav() {
           <Link href="/" className="nav-link"><Search className="w-5 h-5" /><span className="hidden sm:inline">Search</span></Link>
           <Link href="/map" className="nav-link"><MapIcon className="w-5 h-5" /><span className="hidden sm:inline">Map</span></Link>
           <Link href="/significant" className="nav-link"><TrendingUp className="w-5 h-5" /><span className="hidden sm:inline">Significant</span></Link>
-          <Link href="/insights" className="nav-link"><BookOpen className="w-5 h-5" /><span className="hidden sm:inline">Insights</span></Link>
+          <Link href="/analytics" className="nav-link"><BarChart3 className="w-5 h-5" /><span className="hidden sm:inline">Analytics</span></Link>
+            <Link href="/blog" className="nav-link"><BookOpen className="w-5 h-5" /><span className="hidden sm:inline">Blog</span></Link>
           <Link href="/alerts" className="nav-link"><Bell className="w-5 h-5" /><span className="hidden sm:inline">Alerts</span></Link>
           <Link href="/login" className="nav-link"><UserCircle className="w-5 h-5" /><span className="hidden sm:inline">Login</span></Link>
         </div>

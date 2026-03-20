@@ -211,7 +211,8 @@ export default function PricingPage() {
             <Link href="/" className="nav-link"><Search style={{ width: 20, height: 20 }} /><span className="hidden sm:inline">Search</span></Link>
             <Link href="/map" className="nav-link"><MapIcon style={{ width: 20, height: 20 }} /><span className="hidden sm:inline">Map</span></Link>
             <Link href="/significant" className="nav-link"><TrendingUp style={{ width: 20, height: 20 }} /><span className="hidden sm:inline">Significant</span></Link>
-            <Link href="/insights" className="nav-link"><BookOpen style={{ width: 20, height: 20 }} /><span className="hidden sm:inline">Insights</span></Link>
+            <Link href="/analytics" className="nav-link"><BarChart3 style={{ width: 20, height: 20 }} /><span className="hidden sm:inline">Analytics</span></Link>
+            <Link href="/blog" className="nav-link"><BookOpen style={{ width: 20, height: 20 }} /><span className="hidden sm:inline">Blog</span></Link>
             <Link href="/alerts" className="nav-link"><Bell style={{ width: 20, height: 20 }} /><span className="hidden sm:inline">Alerts</span></Link>
             {token ? (
               <Link href="/alerts" className="nav-link" style={{ color: 'var(--teal)' }}><UserCircle style={{ width: 20, height: 20 }} /><span className="hidden sm:inline">Account</span></Link>
