@@ -1,6 +1,9 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
+import dynamic from 'next/dynamic';
+
+const IrelandMap = dynamic(() => import('@/components/analytics/IrelandMap'), { ssr: false });
 import Link from 'next/link';
 import {
   Database, Search, Map as MapIcon, TrendingUp, BookOpen, Bell, UserCircle, BarChart3,
@@ -134,8 +137,14 @@ export default function AnalyticsPage() {
   const [extensions, setExtensions] = useState<any[]>([]);
   const [commencementLag, setCommencementLag] = useState<any[]>([]);
   const [loaded, setLoaded] = useState(false);
+  const [authorityToCounty, setAuthorityToCounty] = useState<Record<string, string>>({});
+  const [countyPop, setCountyPop] = useState<Record<string, number>>({});
 
   useEffect(() => {
+    // Load static JSON
+    fetch('/data/authority-to-county.json').then(r => r.json()).then(setAuthorityToCounty).catch(() => {});
+    fetch('/data/county-populations.json').then(r => r.json()).then(setCountyPop).catch(() => {});
+    // Load analytics
     Promise.allSettled([
       getStats().then(setStats),
       getAnalyticsPipelineGap().then(r => setPipelineGap(r.data)),
@@ -229,6 +238,65 @@ export default function AnalyticsPage() {
     count: r.unbuilt_count,
     value: r.unbuilt_value,
   }));
+
+  // ── Section 3: Where Ireland Builds (per capita by county) ──
+  const appsPerCapita = (() => {
+    const byCounty: Record<string, number> = {};
+    permsByYear.forEach((r: any) => {
+      const county = authorityToCounty[r.planning_authority || ''];
+      if (county) byCounty[county] = (byCounty[county] || 0) + (r.count || 0);
+    });
+    const result: Record<string, number> = {};
+    Object.entries(byCounty).forEach(([c, count]) => {
+      const pop = countyPop[c];
+      if (pop) result[c] = Math.round(count / pop * 1000);
+    });
+    return result;
+  })();
+
+  // ── Section 5: One-off house grant rate by county ──
+  const oneOffByCounty = (() => {
+    const map: Record<string, { granted: number; total: number }> = {};
+    refusalRates.filter((r: any) => r.dev_category === 'residential_new_build').forEach((r: any) => {
+      const county = authorityToCounty[r.planning_authority || ''];
+      if (!county) return;
+      if (!map[county]) map[county] = { granted: 0, total: 0 };
+      map[county].granted += r.granted || 0;
+      map[county].total += r.total || 0;
+    });
+    return Object.entries(map).map(([county, v]) => ({
+      county,
+      grant_rate: v.total > 0 ? Math.round(v.granted / v.total * 1000) / 10 : 0,
+      ...v,
+    })).sort((a, b) => b.grant_rate - a.grant_rate);
+  })();
+  const oneOffMap: Record<string, number> = {};
+  oneOffByCounty.forEach(r => { oneOffMap[r.county] = r.grant_rate; });
+
+  // ── Section 8: Renewables by county (aggregate) ──
+  const renewablesByCounty = (() => {
+    const map: Record<string, { granted: number; total: number }> = {};
+    renewables.forEach((r: any) => {
+      const county = authorityToCounty[r.planning_authority || ''];
+      if (!county) return;
+      if (!map[county]) map[county] = { granted: 0, total: 0 };
+      map[county].granted += r.granted || 0;
+      map[county].total += r.total || 0;
+    });
+    return Object.entries(map).map(([county, v]) => ({
+      county,
+      total: v.total,
+      grant_rate: v.total > 0 ? Math.round(v.granted / v.total * 1000) / 10 : 0,
+    })).sort((a, b) => b.total - a.total);
+  })();
+  const renewableCountMap: Record<string, number> = {};
+  renewablesByCounty.forEach(r => { renewableCountMap[r.county] = r.total; });
+  // Renewables by year
+  const renewablesByYear = (() => {
+    const years: Record<number, number> = {};
+    renewables.forEach((r: any) => { if (r.year >= 2015) years[r.year] = (years[r.year] || 0) + r.total; });
+    return Object.entries(years).map(([y, c]) => ({ year: +y, count: c })).sort((a, b) => a.year - b.year);
+  })();
 
   return (
     <div style={{ background: BG_WHITE, minHeight: '100vh', fontFamily: "'Inter', -apple-system, sans-serif" }}>
@@ -327,6 +395,27 @@ export default function AnalyticsPage() {
         )}
       </Section>
 
+      {/* ═══ SECTION 3: Where Ireland Builds ═══ */}
+      <Section id="section-3" number={3} title="Where Ireland Builds" intro="A county-by-county map of planning applications per 1,000 people reveals where Ireland is building — and where it isn't." bg={BG_WHITE}>
+        {!loaded ? <ChartSkeleton height={500} /> : (
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem', alignItems: 'start' }}>
+            <IrelandMap data={appsPerCapita} valueLabel="Applications per 1,000 people" />
+            <div>
+              <h3 style={{ fontSize: '1rem', fontWeight: 600, color: '#0f172a', margin: '0 0 1rem' }}>Applications Per Capita (per 1,000)</h3>
+              {Object.entries(appsPerCapita).sort(([,a],[,b]) => b - a).slice(0, 15).map(([county, val], i) => (
+                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.4rem' }}>
+                  <span style={{ width: 100, fontSize: '0.8rem', color: '#334155' }}>{county}</span>
+                  <div style={{ flex: 1, background: '#f1f5f9', borderRadius: 4, height: 18 }}>
+                    <div style={{ width: `${Math.min(val / 50 * 100, 100)}%`, background: CHART_TEAL, borderRadius: 4, height: '100%' }} />
+                  </div>
+                  <span style={{ fontSize: '0.75rem', color: '#64748b', width: 30, textAlign: 'right' }}>{val}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </Section>
+
       {/* ═══ SECTION 4: Data Centre Republic ═══ */}
       <Section id="section-4" number={4} title="Data Centre Republic" intro={`Ireland hosts ${dataCentres.length} data centre planning applications since 2015 — the overwhelming majority clustered around Dublin.`} bg={BG_WHITE}>
         {!loaded ? <ChartSkeleton /> : (
@@ -373,6 +462,27 @@ export default function AnalyticsPage() {
         )}
       </Section>
 
+      {/* ═══ SECTION 5: The One-Off House Divide ═══ */}
+      <Section id="section-5" number={5} title="The One-Off House Divide" intro="Which councils grant one-off rural houses and which refuse them? The political debate is intense — the data tells a different story." bg={BG_LIGHT}>
+        {!loaded ? <ChartSkeleton /> : (
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem', alignItems: 'start' }}>
+            <div>
+              <h3 style={{ fontSize: '1rem', fontWeight: 600, color: '#0f172a', margin: '0 0 1rem' }}>Grant Rate for Residential by County</h3>
+              <ResponsiveContainer width="100%" height={400}>
+                <BarChart data={oneOffByCounty.slice(0, 20)} layout="vertical" margin={{ left: 10, right: 20 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                  <XAxis type="number" domain={[0, 100]} unit="%" tick={{ fontSize: 11 }} />
+                  <YAxis dataKey="county" type="category" width={90} tick={{ fontSize: 10 }} />
+                  <Tooltip formatter={(v: any) => `${v}%`} />
+                  <Bar dataKey="grant_rate" fill={CHART_GREEN} radius={[0, 4, 4, 0]} name="Grant Rate" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+            <IrelandMap data={oneOffMap} valueLabel="Grant Rate" formatValue={(v) => `${v}%`} />
+          </div>
+        )}
+      </Section>
+
       {/* ═══ SECTION 6: Permission to Construction ═══ */}
       <Section id="section-6" number={6} title="From Permission to Construction: The Reality" intro="Our BCMS data shows exactly what happens between planning permission and construction starting." bg={BG_LIGHT}>
         {!loaded ? <ChartSkeleton /> : (
@@ -400,6 +510,40 @@ export default function AnalyticsPage() {
               <Area type="monotone" dataKey="count" stroke={CHART_TEAL} fill={CHART_TEAL} fillOpacity={0.3} name="Extension Applications" />
             </AreaChart>
           </ResponsiveContainer>
+        )}
+      </Section>
+
+      {/* ═══ SECTION 8: Renewable Energy Frontier ═══ */}
+      <Section id="section-8" number={8} title="Renewable Energy Frontier" intro="Ireland has committed to 80% renewable electricity by 2030. Our planning data shows where wind and solar applications are being fought — and where they are winning." bg={BG_WHITE}>
+        {!loaded ? <ChartSkeleton /> : (
+          <>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem', alignItems: 'start', marginBottom: '2rem' }}>
+              <IrelandMap data={renewableCountMap} valueLabel="Renewable Applications" />
+              <div>
+                <h3 style={{ fontSize: '1rem', fontWeight: 600, color: '#0f172a', margin: '0 0 1rem' }}>Grant Rate by County</h3>
+                <ResponsiveContainer width="100%" height={350}>
+                  <BarChart data={renewablesByCounty.slice(0, 15)} layout="vertical" margin={{ left: 10, right: 20 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                    <XAxis type="number" domain={[0, 100]} unit="%" tick={{ fontSize: 11 }} />
+                    <YAxis dataKey="county" type="category" width={90} tick={{ fontSize: 10 }} />
+                    <Tooltip formatter={(v: any) => `${v}%`} />
+                    <Bar dataKey="grant_rate" fill={CHART_GREEN} radius={[0, 4, 4, 0]} name="Grant Rate" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+            <h3 style={{ fontSize: '1rem', fontWeight: 600, color: '#0f172a', margin: '0 0 1rem' }}>Renewable Energy Applications Over Time</h3>
+            <ResponsiveContainer width="100%" height={300}>
+              <LineChart data={renewablesByYear} margin={{ top: 10, right: 30, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                <XAxis dataKey="year" tick={{ fontSize: 12 }} />
+                <YAxis tick={{ fontSize: 12 }} />
+                <Tooltip />
+                <ReferenceLine x={2019} stroke="#f59e0b" strokeDasharray="3 3" label={{ value: 'Climate Action Plan', position: 'top', fontSize: 10, fill: '#f59e0b' }} />
+                <Line type="monotone" dataKey="count" stroke={CHART_GREEN} strokeWidth={2} dot={{ r: 3 }} name="Applications" />
+              </LineChart>
+            </ResponsiveContainer>
+          </>
         )}
       </Section>
 
