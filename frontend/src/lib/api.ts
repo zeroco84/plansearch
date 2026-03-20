@@ -789,3 +789,37 @@ export const TONE_COLORS: Record<string, string> = {
   case_study: '#8b5cf6',
   news: '#10b981',
 };
+
+// ── Phase 6: Analytics Dashboard ────────────────────────────────────────
+
+export async function getAnalyticsPipelineGap() {
+  return fetchApi<{ data: any[] }>('/api/analytics/pipeline-gap');
+}
+export async function getAnalyticsPermissionsByYear() {
+  return fetchApi<{ data: any[] }>('/api/analytics/permissions-by-year');
+}
+export async function getAnalyticsLifecycleFunnel() {
+  return fetchApi<{ data: any[] }>('/api/analytics/lifecycle-funnel');
+}
+export async function getAnalyticsRefusalRates() {
+  return fetchApi<{ data: any[] }>('/api/analytics/refusal-rates');
+}
+export async function getAnalyticsValueByCounty() {
+  return fetchApi<{ data: any[] }>('/api/analytics/value-by-county');
+}
+export async function getAnalyticsDataCentres() {
+  return fetchApi<{ data: any[] }>('/api/analytics/data-centres');
+}
+export async function getAnalyticsRenewablesByCounty() {
+  return fetchApi<{ data: any[] }>('/api/analytics/renewables-by-county');
+}
+export async function getAnalyticsTopApplications() {
+  return fetchApi<{ data: any[] }>('/api/analytics/top-applications');
+}
+export async function getAnalyticsExtensionsTrend() {
+  return fetchApi<{ data: any[] }>('/api/analytics/extensions-trend');
+}
+export async function getAnalyticsCommencementLag() {
+  return fetchApi<{ data: any[] }>('/api/analytics/commencement-lag');
+}
+

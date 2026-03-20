@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import get_settings
 from app.database import engine, Base
 from app.api.routes import search, applications, map, stats, admin, export, docs, digest
-from app.api.routes import insights, advertising
+from app.api.routes import insights, advertising, analytics
 from app import models  # noqa: F401 — ensure all models are registered
 from app.models import CostBenchmark, CommencementNotice, FSCApplication  # noqa: F401
 # Phase 5 — Public API
@@ -185,6 +185,7 @@ app.include_router(admin.router, prefix="/api", tags=["Admin"])
 app.include_router(export.router, prefix="/api", tags=["Export"])
 app.include_router(docs.router, prefix="/api", tags=["Documents"])
 app.include_router(digest.router, prefix="/api", tags=["Digest"])
+app.include_router(analytics.router, prefix="/api", tags=["Analytics"])
 # Phase 3
 app.include_router(insights.router, tags=["Insights"])
 # Phase 4 — User accounts & alerts (only if deps installed)
