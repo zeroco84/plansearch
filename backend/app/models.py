@@ -632,3 +632,87 @@ class AlertMatch(Base):
     reg_ref = Column(String(100), nullable=False)
     trigger_event = Column(String(50), nullable=False)
     matched_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+# ═════════════════════════════════════════════════════════════════
+# Phase 5: Public API — Keys, Usage, Webhooks
+# ═════════════════════════════════════════════════════════════════
+
+
+class ApiKey(Base):
+    """API key for commercial public API access."""
+
+    __tablename__ = "api_keys"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    name = Column(String(100), nullable=False)  # "Production", "Dev"
+    key_hash = Column(String(64), unique=True, nullable=False)  # SHA-256 of raw key
+    key_prefix = Column(String(20), nullable=False)  # "psk_live_ab12" for display
+    environment = Column(String(10), default="live")  # live or test
+    tier = Column(String(20), nullable=False, default="developer")
+    is_active = Column(Boolean, default=True)
+    calls_this_month = Column(Integer, default=0)
+    monthly_quota = Column(Integer, default=1000)
+    rate_limit_per_minute = Column(Integer, default=10)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    last_used_at = Column(DateTime(timezone=True))
+    expires_at = Column(DateTime(timezone=True))
+
+    user = relationship("User", backref="api_keys")
+    usage_records = relationship("ApiUsage", back_populates="api_key", cascade="all, delete-orphan")
+    webhooks = relationship("Webhook", back_populates="api_key", cascade="all, delete-orphan")
+
+
+class ApiUsage(Base):
+    """Per-call usage log for API keys."""
+
+    __tablename__ = "api_usage"
+
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    api_key_id = Column(UUID(as_uuid=True), ForeignKey("api_keys.id"), nullable=False)
+    endpoint = Column(String(100))
+    status_code = Column(Integer)
+    response_time_ms = Column(Integer)
+    called_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    api_key = relationship("ApiKey", back_populates="usage_records")
+
+
+class Webhook(Base):
+    """Customer webhook for real-time event notifications."""
+
+    __tablename__ = "webhooks"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    api_key_id = Column(UUID(as_uuid=True), ForeignKey("api_keys.id"), nullable=False)
+    url = Column(String(500), nullable=False)
+    events = Column(JSONB, default=list)  # ["application.granted", ...]
+    filters = Column(JSONB, default=dict)  # {authorities: [...], categories: [...], value_min: N}
+    secret_encrypted = Column(Text, nullable=False)  # Fernet-encrypted raw secret
+    is_active = Column(Boolean, default=True)
+    failure_count = Column(Integer, default=0)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    last_delivered_at = Column(DateTime(timezone=True))
+
+    api_key = relationship("ApiKey", back_populates="webhooks")
+    deliveries = relationship("WebhookDelivery", back_populates="webhook", cascade="all, delete-orphan")
+
+
+class WebhookDelivery(Base):
+    """Individual webhook delivery attempt record."""
+
+    __tablename__ = "webhook_deliveries"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    webhook_id = Column(UUID(as_uuid=True), ForeignKey("webhooks.id"), nullable=False)
+    event = Column(String(50), nullable=False)
+    reg_ref = Column(String(100))
+    payload = Column(JSONB, nullable=False)
+    status = Column(String(20), default="pending")  # pending/delivered/failed
+    attempts = Column(Integer, default=0)
+    http_status = Column(Integer)  # last HTTP response code
+    delivered_at = Column(DateTime(timezone=True))
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    webhook = relationship("Webhook", back_populates="deliveries")

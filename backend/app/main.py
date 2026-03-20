@@ -14,6 +14,13 @@ from app.api.routes import search, applications, map, stats, admin, export, docs
 from app.api.routes import insights, advertising
 from app import models  # noqa: F401 — ensure all models are registered
 from app.models import CostBenchmark, CommencementNotice, FSCApplication  # noqa: F401
+# Phase 5 — Public API
+from app.api.routes.v1 import applications as v1_applications
+from app.api.routes.v1 import stats as v1_stats
+from app.api.routes.v1 import keys as v1_keys
+from app.api.routes.v1 import webhooks as v1_webhooks
+from app.api.routes.v1 import export as v1_export
+from app.models import ApiKey, ApiUsage, Webhook, WebhookDelivery  # noqa: F401
 # Phase 4 — optional, depends on python-jose, passlib, stripe, boto3
 try:
     from app.api.routes import auth, billing, alerts
@@ -121,6 +128,14 @@ async def lifespan(app: FastAPI):
     if PHASE4_AVAILABLE:
         asyncio.create_task(alert_engine_loop())
 
+    # Webhook dispatcher (Phase 5 — public API)
+    try:
+        from app.workers.webhook_dispatcher import webhook_dispatcher_loop
+        asyncio.create_task(webhook_dispatcher_loop())
+        logger.info("Webhook dispatcher started")
+    except Exception as e:
+        logger.warning(f"Webhook dispatcher not started: {e}")
+
     logger.info(f"PlanSearch API v{settings.app_version} starting...")
     yield
     logger.info("PlanSearch API shutting down...")
@@ -159,6 +174,13 @@ if PHASE4_AVAILABLE:
     app.include_router(billing.router, prefix="/api", tags=["Billing"])
     app.include_router(alerts.router, prefix="/api", tags=["Alerts"])
 app.include_router(advertising.router, tags=["Advertising"])
+
+# Phase 5 — Public API v1 (commercial, API-key authenticated)
+app.include_router(v1_applications.router, prefix="/v1", tags=["API v1 — Applications"])
+app.include_router(v1_stats.router, prefix="/v1", tags=["API v1 — Stats"])
+app.include_router(v1_keys.router, prefix="/v1", tags=["API v1 — Keys"])
+app.include_router(v1_webhooks.router, prefix="/v1", tags=["API v1 — Webhooks"])
+app.include_router(v1_export.router, prefix="/v1", tags=["API v1 — Export"])
 
 
 @app.get("/api/health")
