@@ -611,6 +611,7 @@ export default function Home() {
         <div style={{ maxWidth: '860px', margin: '0 auto', textAlign: 'center', fontSize: '0.75rem', color: query ? '#9ca3af' : 'rgba(255,255,255,0.25)' }}>
           <p>PlanSearch — Irish National Planning Intelligence Platform</p>
           <p style={{ marginTop: '4px' }}>Data sourced from NPAD, BCMS, OpenDataNI, and Cork County ePlan. AI classification and value estimation powered by Claude.</p>
+          <p style={{ marginTop: '4px' }}>Built by <a href="https://twinlite.com" target="_blank" rel="noopener noreferrer" style={{ color: query ? '#0d9488' : 'rgba(45,212,191,0.5)', textDecoration: 'none' }}>Twinlite</a></p>
           <p style={{ marginTop: '8px' }}>
             <Link href="/pricing" style={{ color: query ? '#0d9488' : 'rgba(45,212,191,0.5)', textDecoration: 'none', marginRight: '12px' }}>Pricing</Link>
             <Link href="/admin" style={{ color: query ? '#9ca3af' : 'rgba(255,255,255,0.2)', textDecoration: 'none' }}>Admin</Link>
