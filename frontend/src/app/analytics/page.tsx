@@ -160,7 +160,7 @@ function shortAuthority(a: string) { return a?.replace(/ County Council| City Co
 // MAIN PAGE
 // ══════════════════════════════════════════════════════════════════════
 
-export default function AnalyticsPage() {
+function AnalyticsPageInner() {
   const [stats, setStats] = useState<any>(null);
   const [pipelineGap, setPipelineGap] = useState<any[]>([]);
   const [permsByYear, setPermsByYear] = useState<any[]>([]);
@@ -341,7 +341,6 @@ export default function AnalyticsPage() {
   }, [renewables]);
 
   return (
-    <ChartErrorBoundary>
     <div style={{ background: BG_WHITE, minHeight: '100vh', fontFamily: "'Inter', -apple-system, sans-serif" }}>
       {/* NAV */}
       <nav style={{ background: DARK_NAVY, borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
@@ -676,6 +675,14 @@ export default function AnalyticsPage() {
         @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
       `}</style>
     </div>
+  );
+}
+
+// Wrapper so the error boundary catches crashes from hooks/render inside the inner component
+export default function AnalyticsPage() {
+  return (
+    <ChartErrorBoundary>
+      <AnalyticsPageInner />
     </ChartErrorBoundary>
   );
 }
