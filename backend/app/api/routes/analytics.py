@@ -16,7 +16,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
-from app.utils.redis_cache import cached
+from app.utils.redis_cache import cached, get_redis
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -354,3 +354,34 @@ async def commencement_lag(db: AsyncSession = Depends(get_db)):
         _compute_commencement_lag, db,
     )
     return {"data": data}
+
+
+# ── Flush Cache ─────────────────────────────────────────────────────────
+
+
+ANALYTICS_CACHE_KEYS = [
+    "analytics:pipeline-gap",
+    "analytics:permissions-by-year",
+    "analytics:lifecycle-funnel",
+    "analytics:refusal-rates",
+    "analytics:value-by-county",
+    "analytics:data-centres",
+    "analytics:renewables-by-county",
+    "analytics:top-applications",
+    "analytics:extensions-trend",
+    "analytics:commencement-lag",
+]
+
+
+@router.post("/analytics/flush-cache")
+async def flush_analytics_cache():
+    """Flush all analytics cache keys from Redis."""
+    try:
+        r = await get_redis()
+        deleted = 0
+        for key in ANALYTICS_CACHE_KEYS:
+            deleted += await r.delete(key)
+        return {"flushed": deleted, "keys": ANALYTICS_CACHE_KEYS}
+    except Exception as e:
+        return {"error": str(e)}
+
