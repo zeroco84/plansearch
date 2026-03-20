@@ -7,8 +7,7 @@ import {
   ArrowLeft, MapPin, Calendar, Building2, FileText, Scale,
   ExternalLink, Clock, CheckCircle, AlertCircle, XCircle,
   Database, Settings, Map as MapIcon, Download, Search,
-  TrendingUp, BookOpen, Bell, UserCircle,
-, BarChart3 } from 'lucide-react';
+  TrendingUp, BookOpen, Bell, UserCircle, BarChart3 } from 'lucide-react';
 import {
   getApplication, ApplicationDetail,
   CATEGORY_LABELS, formatDate, formatFileSize, formatValue, getPortalDocumentUrl,

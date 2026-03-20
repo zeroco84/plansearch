@@ -17,8 +17,7 @@ import {
   type DigestResponse,
 } from '@/lib/api';
 import {
-  Database, Settings, Map as MapIcon, TrendingUp, BookOpen, Search, Bell, UserCircle,
-, BarChart3 } from 'lucide-react';
+  Database, Settings, Map as MapIcon, TrendingUp, BookOpen, Search, Bell, UserCircle, BarChart3 } from 'lucide-react';
 
 export default function SignificantPage() {
   const [entries, setEntries] = useState<ApplicationSummary[]>([]);

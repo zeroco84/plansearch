@@ -4,8 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import {
   Database, ArrowLeft, FileText, Play, Square, Settings,
-  Search, TrendingUp, BookOpen, Map as MapIcon, RefreshCw,
-, BarChart3 } from 'lucide-react';
+  Search, TrendingUp, BookOpen, Map as MapIcon, RefreshCw, BarChart3 } from 'lucide-react';
 
 const API_BASE = process.env.NODE_ENV === 'production'
   ? 'https://api.plansearch.cc'

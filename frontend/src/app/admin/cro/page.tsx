@@ -4,8 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import {
   Database, ArrowLeft, RefreshCw, Play, Square,
-  Settings, Search, TrendingUp, BookOpen, Map as MapIcon, Building2,
-, BarChart3 } from 'lucide-react';
+  Settings, Search, TrendingUp, BookOpen, Map as MapIcon, Building2, BarChart3 } from 'lucide-react';
 import { triggerCroEnrichment, fetchCroProgress, stopCroEnrichment } from '@/lib/api';
 
 interface CroProgress {

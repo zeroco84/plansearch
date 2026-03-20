@@ -4,8 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import {
   Database, ArrowLeft, RefreshCw, Play, Square,
-  Settings, Search, TrendingUp, BookOpen, Map as MapIcon,
-, BarChart3 } from 'lucide-react';
+  Settings, Search, TrendingUp, BookOpen, Map as MapIcon, BarChart3 } from 'lucide-react';
 import { startGeocoder, stopGeocoder, fetchGeocoderProgress } from '@/lib/api';
 
 interface GeocoderProgress {
