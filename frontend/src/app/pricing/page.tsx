@@ -320,6 +320,10 @@ export default function PricingPage() {
               );
             })}
           </div>
+          <p style={{ textAlign: 'center', color: '#64748b', fontSize: '0.82rem', margin: '0 2rem 2rem', lineHeight: 1.5 }}>
+            Free tier accounts available for academic research and journalists, email{' '}
+            <a href="mailto:support@twinlite.com" style={{ color: '#2dd4bf', textDecoration: 'none' }}>support@twinlite.com</a>
+          </p>
         </>
       )}
 
