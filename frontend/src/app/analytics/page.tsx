@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo, Component } from 'react';
 import dynamic from 'next/dynamic';
 
 const IrelandMap = dynamic(() => import('@/components/analytics/IrelandMap'), { ssr: false });
@@ -21,6 +21,34 @@ import {
   getAnalyticsRenewablesByCounty, getAnalyticsTopApplications,
   getAnalyticsExtensionsTrend, getAnalyticsCommencementLag,
 } from '@/lib/api';
+
+// ── Error Boundary (catches render crashes and shows the real error) ──
+class ChartErrorBoundary extends Component<
+  { children: React.ReactNode },
+  { hasError: boolean; error: string }
+> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props);
+    this.state = { hasError: false, error: '' };
+  }
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error: `${error.name}: ${error.message}\n${error.stack}` };
+  }
+  componentDidCatch(error: Error, info: React.ErrorInfo) {
+    console.error('Analytics crash:', error, info);
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{ padding: '2rem', fontFamily: 'monospace', fontSize: '0.85rem', background: '#fef2f2', color: '#991b1b', borderRadius: 8, margin: '1rem', whiteSpace: 'pre-wrap', maxHeight: '50vh', overflow: 'auto' }}>
+          <strong>Analytics page crashed:</strong>
+          <br />{this.state.error}
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 // ── Colours ────────────────────────────────────────────────────────────
 const TEAL = '#2dd4bf';
@@ -313,6 +341,7 @@ export default function AnalyticsPage() {
   }, [renewables]);
 
   return (
+    <ChartErrorBoundary>
     <div style={{ background: BG_WHITE, minHeight: '100vh', fontFamily: "'Inter', -apple-system, sans-serif" }}>
       {/* NAV */}
       <nav style={{ background: DARK_NAVY, borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
@@ -647,5 +676,6 @@ export default function AnalyticsPage() {
         @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
       `}</style>
     </div>
+    </ChartErrorBoundary>
   );
 }
