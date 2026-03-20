@@ -265,6 +265,8 @@ export default function PricingPage() {
                     borderRadius: '16px',
                     padding: '2rem',
                     position: 'relative',
+                    display: 'flex',
+                    flexDirection: 'column' as const,
                     transition: 'transform 0.2s ease, border-color 0.2s ease',
                   }}
                 >
@@ -304,6 +306,7 @@ export default function PricingPage() {
                     disabled={loading === tier.id}
                     style={{
                       width: '100%', padding: '12px', borderRadius: '10px', border: 'none',
+                      marginTop: 'auto',
                       background: tier.popular ? 'linear-gradient(135deg, #0d9488, #2dd4bf)' : 'rgba(255,255,255,0.08)',
                       color: 'white', fontSize: '0.9rem', fontWeight: 600, cursor: 'pointer',
                       display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem',
@@ -341,6 +344,8 @@ export default function PricingPage() {
                     borderRadius: '16px',
                     padding: '1.75rem',
                     position: 'relative',
+                    display: 'flex',
+                    flexDirection: 'column' as const,
                     transition: 'transform 0.2s ease, border-color 0.2s ease',
                   }}
                 >
@@ -382,6 +387,7 @@ export default function PricingPage() {
                     onClick={() => handleApiContact(tier.id)}
                     style={{
                       width: '100%', padding: '12px', borderRadius: '10px', border: 'none',
+                      marginTop: 'auto',
                       background: tier.popular ? 'linear-gradient(135deg, #0d9488, #2dd4bf)' : tier.price === 0 ? 'rgba(45,212,191,0.15)' : 'rgba(255,255,255,0.08)',
                       color: tier.price === 0 ? '#2dd4bf' : 'white',
                       fontSize: '0.9rem', fontWeight: 600, cursor: 'pointer',
