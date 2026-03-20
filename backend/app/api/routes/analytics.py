@@ -82,13 +82,20 @@ async def _compute_permissions_by_year(db: AsyncSession):
     result = await db.execute(text("""
         SELECT
             year,
-            dev_category,
+            CASE
+                WHEN dev_category = 'residential_new_build'
+                     AND dev_subcategory ILIKE '%%apartment%%'
+                THEN 'residential_apartments'
+                WHEN dev_category = 'residential_new_build'
+                THEN 'residential_houses'
+                ELSE dev_category
+            END AS dev_category,
             planning_authority,
             COUNT(*) AS count
         FROM applications
         WHERE year >= 2015 AND year <= 2025
           AND dev_category IS NOT NULL
-        GROUP BY year, dev_category, planning_authority
+        GROUP BY year, 2, planning_authority
         ORDER BY year, count DESC
     """))
     return _rows_to_dicts(result)

@@ -179,7 +179,7 @@ export default function AnalyticsPage() {
     permsByYear.forEach((r: any) => {
       if (!years[r.year]) years[r.year] = { year: r.year };
       const cat = r.dev_category === 'residential_apartments' ? 'Apartments' :
-                  r.dev_category === 'residential_new_build' ? 'Houses' : null;
+                  r.dev_category === 'residential_houses' ? 'Houses' : null;
       if (cat) years[r.year][cat] = (years[r.year][cat] || 0) + r.count;
     });
     return Object.values(years).sort((a: any, b: any) => a.year - b.year);
