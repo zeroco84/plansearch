@@ -618,7 +618,7 @@ function AnalyticsPageInner() {
         {!loaded ? <ChartSkeleton /> : (
           <>
             <ResponsiveContainer width="100%" height={400}>
-              <Treemap data={valueTreemap} dataKey="value" aspectRatio={4/3} stroke="#fff" animationDuration={500}>
+              <Treemap data={valueTreemap} dataKey="value" aspectRatio={4/3} stroke="#fff" isAnimationActive={false}>
                 {valueTreemap.map((_, i) => (
                   <Cell key={i} fill={TREEMAP_COLORS[i % TREEMAP_COLORS.length]} />
                 ))}
