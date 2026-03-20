@@ -220,7 +220,7 @@ export default function PricingPage() {
           Frequently Asked Questions
         </h3>
         {[
-          { q: 'What planning data is covered?', a: 'All 31 Republic of Ireland councils via NPAD, all 11 Northern Ireland councils, plus Cork County Council. Over 600,000 applications.' },
+          { q: 'What data is provided?', a: 'We provide all planning application data from all 31 Republic of Ireland councils (via NPAD), all 11 Northern Ireland councils, and Cork County Council — over 600,000 applications. We also include Disability Access Certificate (DAC) and Fire Safety Certificate (FSC) applications.' },
           { q: 'How fast are instant alerts?', a: 'Instant alerts are checked every 30 minutes. New applications typically appear within 1 hour of being published.' },
           { q: 'Can I cancel anytime?', a: 'Yes. Cancel via the billing portal at any time. Your alerts remain active until the end of your billing period.' },
           { q: 'What payment methods are accepted?', a: 'Visa, Mastercard, and all major cards via Stripe. Secure PCI-compliant checkout.' },
