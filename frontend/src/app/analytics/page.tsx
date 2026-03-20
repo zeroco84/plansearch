@@ -85,7 +85,7 @@ function Section({ id, number, title, intro, children, bg = BG_WHITE }: {
           <div style={{ width: 36, height: 36, borderRadius: '50%', background: CHART_TEAL, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '0.9rem', flexShrink: 0 }}>{number}</div>
           <div style={{ flex: 1, minWidth: 200 }}>
             <h2 style={{ fontSize: '1.6rem', fontWeight: 700, color: '#0f172a', margin: 0, fontFamily: "'Playfair Display', serif" }}>{title}</h2>
-            <p style={{ fontSize: '1rem', color: '#64748b', margin: '0.5rem 0 0', lineHeight: 1.6, fontStyle: 'italic' }}>&ldquo;{intro}&rdquo;</p>
+            <p style={{ fontSize: '1rem', color: '#64748b', margin: '0.5rem 0 0', lineHeight: 1.6, fontStyle: 'italic' }}>{intro}</p>
           </div>
           <div style={{ display: 'flex', gap: '0.5rem' }}>
             <a href={`https://twitter.com/intent/tweet?text=${tweetText}`} target="_blank" rel="noopener" style={{ color: '#94a3b8' }}><Twitter size={18} /></a>
