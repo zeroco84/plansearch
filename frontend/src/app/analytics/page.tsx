@@ -412,7 +412,7 @@ function AnalyticsPageInner() {
                 <XAxis type="number" tick={{ fontSize: 12 }} />
                 <YAxis dataKey="authority" type="category" width={120} tick={{ fontSize: 11 }} />
                 <Tooltip formatter={(v: any) => fmtNum(v)} />
-                <Bar dataKey="count" fill={CHART_TEAL} radius={[0, 4, 4, 0]} name="Unbuilt Permissions" />
+                <Bar dataKey="count" fill={CHART_TEAL} radius={[0, 4, 4, 0]} name="Unbuilt Permissions" isAnimationActive={false} />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -430,8 +430,8 @@ function AnalyticsPageInner() {
               <Tooltip />
               <Legend />
               <ReferenceLine x={2022} stroke="#f59e0b" strokeDasharray="3 3" label={{ value: 'SHD abolished', position: 'top', fontSize: 11, fill: '#f59e0b' }} />
-              <Bar dataKey="Apartments" fill={CHART_TEAL} radius={[4, 4, 0, 0]} />
-              <Bar dataKey="Houses" fill={CHART_BLUE} radius={[4, 4, 0, 0]} />
+              <Bar dataKey="Apartments" fill={CHART_TEAL} radius={[4, 4, 0, 0]} isAnimationActive={false} />
+              <Bar dataKey="Houses" fill={CHART_BLUE} radius={[4, 4, 0, 0]} isAnimationActive={false} />
             </BarChart>
           </ResponsiveContainer>
         )}
@@ -470,9 +470,9 @@ function AnalyticsPageInner() {
                 <Tooltip />
                 <Legend />
                 <ReferenceLine x={2022} stroke="#f59e0b" strokeDasharray="3 3" label={{ value: 'EirGrid moratorium', position: 'top', fontSize: 11, fill: '#f59e0b' }} />
-                <Bar dataKey="granted" fill={CHART_TEAL} stackId="a" name="Granted" />
-                <Bar dataKey="refused" fill={CHART_RED} stackId="a" name="Refused" />
-                <Bar dataKey="pending" fill={CHART_GREY} stackId="a" name="Pending" />
+                <Bar dataKey="granted" fill={CHART_TEAL} stackId="a" name="Granted" isAnimationActive={false} />
+                <Bar dataKey="refused" fill={CHART_RED} stackId="a" name="Refused" isAnimationActive={false} />
+                <Bar dataKey="pending" fill={CHART_GREY} stackId="a" name="Pending" isAnimationActive={false} />
               </BarChart>
             </ResponsiveContainer>
             {/* Top 10 data centres table */}
@@ -516,7 +516,7 @@ function AnalyticsPageInner() {
                   <XAxis type="number" domain={[0, 100]} unit="%" tick={{ fontSize: 11 }} />
                   <YAxis dataKey="county" type="category" width={90} tick={{ fontSize: 10 }} />
                   <Tooltip formatter={(v: any) => `${v}%`} />
-                  <Bar dataKey="grant_rate" fill={CHART_GREEN} radius={[0, 4, 4, 0]} name="Grant Rate" />
+                  <Bar dataKey="grant_rate" fill={CHART_GREEN} radius={[0, 4, 4, 0]} name="Grant Rate" isAnimationActive={false} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -534,7 +534,7 @@ function AnalyticsPageInner() {
               <XAxis dataKey="months_lag" tick={{ fontSize: 12 }} label={{ value: 'Months from grant to commencement', position: 'bottom', offset: 0, fontSize: 12 }} />
               <YAxis tick={{ fontSize: 12 }} />
               <Tooltip labelFormatter={(v) => `${v} months`} />
-              <Bar dataKey="count" fill={CHART_TEAL} radius={[4, 4, 0, 0]} name="Applications" />
+              <Bar dataKey="count" fill={CHART_TEAL} radius={[4, 4, 0, 0]} name="Applications" isAnimationActive={false} />
             </BarChart>
           </ResponsiveContainer>
         )}
@@ -549,7 +549,7 @@ function AnalyticsPageInner() {
               <XAxis dataKey="year" tick={{ fontSize: 12 }} />
               <YAxis tick={{ fontSize: 12 }} />
               <Tooltip />
-              <Area type="monotone" dataKey="count" stroke={CHART_TEAL} fill={CHART_TEAL} fillOpacity={0.3} name="Extension Applications" />
+              <Area type="monotone" dataKey="count" stroke={CHART_TEAL} fill={CHART_TEAL} fillOpacity={0.3} name="Extension Applications" isAnimationActive={false} />
             </AreaChart>
           </ResponsiveContainer>
         )}
@@ -569,7 +569,7 @@ function AnalyticsPageInner() {
                     <XAxis type="number" domain={[0, 100]} unit="%" tick={{ fontSize: 11 }} />
                     <YAxis dataKey="county" type="category" width={90} tick={{ fontSize: 10 }} />
                     <Tooltip formatter={(v: any) => `${v}%`} />
-                    <Bar dataKey="grant_rate" fill={CHART_GREEN} radius={[0, 4, 4, 0]} name="Grant Rate" />
+                    <Bar dataKey="grant_rate" fill={CHART_GREEN} radius={[0, 4, 4, 0]} name="Grant Rate" isAnimationActive={false} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -582,7 +582,7 @@ function AnalyticsPageInner() {
                 <YAxis tick={{ fontSize: 12 }} />
                 <Tooltip />
                 <ReferenceLine x={2019} stroke="#f59e0b" strokeDasharray="3 3" label={{ value: 'Climate Action Plan', position: 'top', fontSize: 10, fill: '#f59e0b' }} />
-                <Line type="monotone" dataKey="count" stroke={CHART_GREEN} strokeWidth={2} dot={{ r: 3 }} name="Applications" />
+                <Line type="monotone" dataKey="count" stroke={CHART_GREEN} strokeWidth={2} dot={{ r: 3 }} name="Applications" isAnimationActive={false} />
               </LineChart>
             </ResponsiveContainer>
           </>
@@ -602,7 +602,7 @@ function AnalyticsPageInner() {
                 <XAxis type="number" tick={{ fontSize: 11 }} domain={[0, 50]} unit="%" />
                 <YAxis dataKey="authority" type="category" width={140} tick={{ fontSize: 10 }} />
                 <Tooltip formatter={(v: any) => `${v}%`} />
-                <Bar dataKey="refusal_rate" name="Refusal Rate" radius={[0, 4, 4, 0]}>
+                <Bar dataKey="refusal_rate" name="Refusal Rate" radius={[0, 4, 4, 0]} isAnimationActive={false}>
                   {refusalByAuthority.map((entry, i) => (
                     <Cell key={i} fill={entry.refusal_rate > 25 ? CHART_RED : entry.refusal_rate > 15 ? '#f59e0b' : CHART_GREEN} />
                   ))}
