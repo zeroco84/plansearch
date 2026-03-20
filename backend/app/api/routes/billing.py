@@ -9,7 +9,7 @@ import os
 import stripe
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, func
 
 from app.database import get_db
 from app.models import User
@@ -31,6 +31,13 @@ TIER_LIMITS = {
     "starter": 5,
     "professional": 25,
     "agency": 999,
+}
+
+# API tier Stripe Price IDs — Phase 5
+API_PRICE_IDS = {
+    "api_starter": os.environ.get("STRIPE_PRICE_API_STARTER"),        # €99/month
+    "api_professional": os.environ.get("STRIPE_PRICE_API_PROFESSIONAL"),  # €299/month
+    "api_enterprise": os.environ.get("STRIPE_PRICE_API_ENTERPRISE"),    # €999/month
 }
 
 
@@ -135,10 +142,25 @@ async def stripe_webhook(request: Request, db: AsyncSession = Depends(get_db)):
 
 
 @router.get("/billing/status")
-async def billing_status(user: User = Depends(get_current_user)):
-    """Return current billing status."""
+async def billing_status(
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Return current billing status including API key info."""
+    # Check for API keys
+    from app.models import ApiKey
+    api_key_result = await db.execute(
+        select(ApiKey)
+        .where(ApiKey.user_id == user.id, ApiKey.is_active == True)
+        .limit(1)
+    )
+    api_key = api_key_result.scalar_one_or_none()
+
     return {
         "tier": user.subscription_tier,
         "status": user.subscription_status,
         "max_profiles": TIER_LIMITS.get(user.subscription_tier, 0),
+        "api_tier": api_key.tier if api_key else None,
+        "api_calls_this_month": api_key.calls_this_month if api_key else 0,
+        "api_monthly_quota": api_key.monthly_quota if api_key else 0,
     }

@@ -20,6 +20,7 @@ from app.api.routes.v1 import stats as v1_stats
 from app.api.routes.v1 import keys as v1_keys
 from app.api.routes.v1 import webhooks as v1_webhooks
 from app.api.routes.v1 import export as v1_export
+from app.api.routes.v1 import developer as v1_developer
 from app.models import ApiKey, ApiUsage, Webhook, WebhookDelivery  # noqa: F401
 # Phase 4 — optional, depends on python-jose, passlib, stripe, boto3
 try:
@@ -181,6 +182,7 @@ app.include_router(v1_stats.router, prefix="/v1", tags=["API v1 — Stats"])
 app.include_router(v1_keys.router, prefix="/v1", tags=["API v1 — Keys"])
 app.include_router(v1_webhooks.router, prefix="/v1", tags=["API v1 — Webhooks"])
 app.include_router(v1_export.router, prefix="/v1", tags=["API v1 — Export"])
+app.include_router(v1_developer.router, prefix="/v1", tags=["API v1 — Developer"])
 
 
 @app.get("/api/health")
