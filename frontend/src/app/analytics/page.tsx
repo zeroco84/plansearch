@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import dynamic from 'next/dynamic';
 
 const IrelandMap = dynamic(() => import('@/components/analytics/IrelandMap'), { ssr: false });
@@ -45,16 +45,23 @@ function useAnimatedCounter(target: number, duration = 2000, active = true) {
   const [value, setValue] = useState(0);
   const ref = useRef<HTMLDivElement>(null);
   const animated = useRef(false);
+  const prevTarget = useRef(0);
 
   useEffect(() => {
-    if (!active || animated.current || !target) return;
+    if (!active || !target || target === prevTarget.current) return;
+    prevTarget.current = target;
+    animated.current = true;
+    let cancelled = false;
     const el = ref.current;
-    if (!el) return;
+    if (!el) {
+      setValue(target);
+      return;
+    }
     const obs = new IntersectionObserver(([entry]) => {
-      if (entry.isIntersecting && !animated.current) {
-        animated.current = true;
+      if (entry.isIntersecting && !cancelled) {
         const start = performance.now();
         const step = (now: number) => {
+          if (cancelled) return;
           const t = Math.min((now - start) / duration, 1);
           const ease = 1 - Math.pow(1 - t, 4);
           setValue(Math.floor(ease * target));
@@ -62,10 +69,11 @@ function useAnimatedCounter(target: number, duration = 2000, active = true) {
           else setValue(target);
         };
         requestAnimationFrame(step);
+        obs.disconnect();
       }
     }, { threshold: 0.3 });
     obs.observe(el);
-    return () => obs.disconnect();
+    return () => { cancelled = true; obs.disconnect(); };
   }, [target, duration, active]);
 
   return { value, ref };
@@ -160,12 +168,12 @@ export default function AnalyticsPage() {
     ]).finally(() => setLoaded(true));
   }, []);
 
-  // ── Derived data ──
-  const totalApps = stats?.total_applications ?? 0;
-  const funnelMap = Object.fromEntries(funnel.map((f: any) => [f.stage, f.count]));
-  const underConstruction = funnelMap['commenced'] ?? 0;
-  const completed = funnelMap['completed'] ?? 0;
-  const totalUnbuiltValue = pipelineGap.reduce((s: number, r: any) => s + (r.unbuilt_value || 0), 0);
+  // ── Derived data (all memoised to prevent infinite re-render) ──
+  const totalApps = useMemo(() => stats?.total_applications ?? 0, [stats]);
+  const funnelMap = useMemo(() => Object.fromEntries(funnel.map((f: any) => [f.stage, f.count])), [funnel]);
+  const underConstruction = useMemo(() => funnelMap['commenced'] ?? 0, [funnelMap]);
+  const completed = useMemo(() => funnelMap['completed'] ?? 0, [funnelMap]);
+  const totalUnbuiltValue = useMemo(() => pipelineGap.reduce((s: number, r: any) => s + (r.unbuilt_value || 0), 0), [pipelineGap]);
 
   // Hero counters
   const c1 = useAnimatedCounter(totalApps, 2000, loaded);
@@ -174,7 +182,7 @@ export default function AnalyticsPage() {
   const c4Val = totalUnbuiltValue;
 
   // Permissions by year: reshape for grouped bar
-  const yearData = (() => {
+  const yearData = useMemo(() => {
     const years: Record<string, any> = {};
     permsByYear.forEach((r: any) => {
       if (!years[r.year]) years[r.year] = { year: r.year };
@@ -183,10 +191,10 @@ export default function AnalyticsPage() {
       if (cat) years[r.year][cat] = (years[r.year][cat] || 0) + r.count;
     });
     return Object.values(years).sort((a: any, b: any) => a.year - b.year);
-  })();
+  }, [permsByYear]);
 
   // Refusal rates: aggregate by authority for overall
-  const refusalByAuthority = (() => {
+  const refusalByAuthority = useMemo(() => {
     const map: Record<string, { granted: number; refused: number; total: number }> = {};
     refusalRates.forEach((r: any) => {
       if (!map[r.planning_authority]) map[r.planning_authority] = { granted: 0, refused: 0, total: 0 };
@@ -199,27 +207,27 @@ export default function AnalyticsPage() {
       refusal_rate: v.total > 0 ? Math.round(v.refused / v.total * 1000) / 10 : 0,
       ...v,
     })).sort((a, b) => b.refusal_rate - a.refusal_rate);
-  })();
+  }, [refusalRates]);
 
   // Value by county: aggregate for treemap
-  const valueTreemap = (() => {
+  const valueTreemap = useMemo(() => {
     const map: Record<string, number> = {};
     valueByCounty.forEach((r: any) => {
       const k = shortAuthority(r.planning_authority);
       map[k] = (map[k] || 0) + (r.total_value || 0);
     });
     return Object.entries(map).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value).slice(0, 25);
-  })();
+  }, [valueByCounty]);
 
   // Extensions: reshape for area chart
-  const extByYear = (() => {
+  const extByYear = useMemo(() => {
     const years: Record<number, number> = {};
     extensions.forEach((r: any) => { years[r.year] = (years[r.year] || 0) + r.count; });
     return Object.entries(years).map(([y, c]) => ({ year: +y, count: c })).sort((a, b) => a.year - b.year);
-  })();
+  }, [extensions]);
 
   // Data centres by year
-  const dcByYear = (() => {
+  const dcByYear = useMemo(() => {
     const years: Record<number, { granted: number; refused: number; pending: number }> = {};
     dataCentres.forEach((r: any) => {
       const y = r.year || 0;
@@ -230,17 +238,17 @@ export default function AnalyticsPage() {
       else years[y].pending++;
     });
     return Object.entries(years).filter(([y]) => +y >= 2015).map(([y, v]) => ({ year: +y, ...v })).sort((a, b) => a.year - b.year);
-  })();
+  }, [dataCentres]);
 
   // Pipeline gap: top 15
-  const pipelineTop15 = pipelineGap.slice(0, 15).map((r: any) => ({
+  const pipelineTop15 = useMemo(() => pipelineGap.slice(0, 15).map((r: any) => ({
     authority: shortAuthority(r.planning_authority),
     count: r.unbuilt_count,
     value: r.unbuilt_value,
-  }));
+  })), [pipelineGap]);
 
   // ── Section 3: Where Ireland Builds (per capita by county) ──
-  const appsPerCapita = (() => {
+  const appsPerCapita = useMemo(() => {
     const byCounty: Record<string, number> = {};
     permsByYear.forEach((r: any) => {
       const county = authorityToCounty[r.planning_authority || ''];
@@ -252,10 +260,10 @@ export default function AnalyticsPage() {
       if (pop) result[c] = Math.round(count / pop * 1000);
     });
     return result;
-  })();
+  }, [permsByYear, authorityToCounty, countyPop]);
 
   // ── Section 5: One-off house grant rate by county ──
-  const oneOffByCounty = (() => {
+  const oneOffByCounty = useMemo(() => {
     const map: Record<string, { granted: number; total: number }> = {};
     refusalRates.filter((r: any) => r.dev_category === 'residential_new_build').forEach((r: any) => {
       const county = authorityToCounty[r.planning_authority || ''];
@@ -269,12 +277,15 @@ export default function AnalyticsPage() {
       grant_rate: v.total > 0 ? Math.round(v.granted / v.total * 1000) / 10 : 0,
       ...v,
     })).sort((a, b) => b.grant_rate - a.grant_rate);
-  })();
-  const oneOffMap: Record<string, number> = {};
-  oneOffByCounty.forEach(r => { oneOffMap[r.county] = r.grant_rate; });
+  }, [refusalRates, authorityToCounty]);
+  const oneOffMap = useMemo(() => {
+    const m: Record<string, number> = {};
+    oneOffByCounty.forEach(r => { m[r.county] = r.grant_rate; });
+    return m;
+  }, [oneOffByCounty]);
 
   // ── Section 8: Renewables by county (aggregate) ──
-  const renewablesByCounty = (() => {
+  const renewablesByCounty = useMemo(() => {
     const map: Record<string, { granted: number; total: number }> = {};
     renewables.forEach((r: any) => {
       const county = authorityToCounty[r.planning_authority || ''];
@@ -288,15 +299,18 @@ export default function AnalyticsPage() {
       total: v.total,
       grant_rate: v.total > 0 ? Math.round(v.granted / v.total * 1000) / 10 : 0,
     })).sort((a, b) => b.total - a.total);
-  })();
-  const renewableCountMap: Record<string, number> = {};
-  renewablesByCounty.forEach(r => { renewableCountMap[r.county] = r.total; });
+  }, [renewables, authorityToCounty]);
+  const renewableCountMap = useMemo(() => {
+    const m: Record<string, number> = {};
+    renewablesByCounty.forEach(r => { m[r.county] = r.total; });
+    return m;
+  }, [renewablesByCounty]);
   // Renewables by year
-  const renewablesByYear = (() => {
+  const renewablesByYear = useMemo(() => {
     const years: Record<number, number> = {};
     renewables.forEach((r: any) => { if (r.year >= 2015) years[r.year] = (years[r.year] || 0) + r.total; });
     return Object.entries(years).map(([y, c]) => ({ year: +y, count: c })).sort((a, b) => a.year - b.year);
-  })();
+  }, [renewables]);
 
   return (
     <div style={{ background: BG_WHITE, minHeight: '100vh', fontFamily: "'Inter', -apple-system, sans-serif" }}>
