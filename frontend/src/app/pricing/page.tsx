@@ -86,7 +86,6 @@ const apiTiers = [
       '1 webhook',
       'All endpoints',
       'Real data (not mock)',
-      'Community support',
     ],
   },
   {
