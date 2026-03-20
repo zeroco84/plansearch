@@ -5,7 +5,7 @@ import Link from 'next/link';
 import {
   Database, ArrowLeft, RefreshCw, Play, Square,
   Settings, Search, TrendingUp, BookOpen, Map as MapIcon, Users,
-} from 'lucide-react';
+, BarChart3 } from 'lucide-react';
 import { startApplicantScraper, stopApplicantScraper, fetchApplicantScraperProgress } from '@/lib/api';
 
 interface ScraperProgress {

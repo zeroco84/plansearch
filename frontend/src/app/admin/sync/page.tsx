@@ -5,7 +5,7 @@ import Link from 'next/link';
 import {
   Database, ArrowLeft, RefreshCw, Play, CheckCircle, XCircle, Square,
   Settings, Search, TrendingUp, BookOpen, Map as MapIcon, Building2,
-} from 'lucide-react';
+, BarChart3 } from 'lucide-react';
 import { triggerNpadSync, triggerBcmsSync, triggerSubstackSync, fetchSyncProgress, stopSync, getSyncStatus, getAdminLogs } from '@/lib/api';
 
 interface SyncProgress {

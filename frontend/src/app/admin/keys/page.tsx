@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Database, ArrowLeft, Key, Eye, EyeOff, Save, CheckCircle, Settings, Search, TrendingUp, BookOpen, Map as MapIcon } from 'lucide-react';
+import { Database, ArrowLeft, Key, Eye, EyeOff, Save, CheckCircle, Settings, Search, TrendingUp, BookOpen, Map as MapIcon , BarChart3 } from 'lucide-react';
 import { updateApiKey, getAdminConfig } from '@/lib/api';
 
 export default function KeysPage() {

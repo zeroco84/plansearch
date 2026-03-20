@@ -10,7 +10,7 @@ import {
 } from '@/lib/api';
 import {
   Database, Settings, Map as MapIcon, TrendingUp, BookOpen, Search, Bell, UserCircle,
-} from 'lucide-react';
+, BarChart3 } from 'lucide-react';
 
 const FALLBACK_POSTS = [
   { slug: 'stepping-aside', title: 'Stepping Aside', subtitle: 'How to spend 6 years and millions of Euro building absolutely nothing.', published_at: '2025-12-09', substack_url: 'https://thebuildpod.substack.com/p/stepping-aside', featured_image_url: null },

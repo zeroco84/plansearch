@@ -5,7 +5,7 @@ import Link from 'next/link';
 import {
   Database, Settings, Search, Filter,
   Map as MapIcon, TrendingUp, BookOpen, Bell, UserCircle
-} from 'lucide-react';
+, BarChart3 } from 'lucide-react';
 import { CATEGORY_LABELS, getDecisionColor } from '@/lib/api';
 
 const API_BASE = process.env.NODE_ENV === 'production'

@@ -5,7 +5,7 @@ import Link from 'next/link';
 import {
   Database, ArrowLeft, Zap, Settings, Search, TrendingUp, BookOpen,
   Map as MapIcon, Square,
-} from 'lucide-react';
+, BarChart3 } from 'lucide-react';
 import {
   triggerClassification, getClassifyStatus, fetchClassifyProgress,
   stopClassify, CATEGORY_LABELS,

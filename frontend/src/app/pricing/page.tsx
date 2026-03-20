@@ -7,7 +7,7 @@ import {
   Database, Search, Map as MapIcon, TrendingUp, BookOpen,
   Check, Zap, Star, Crown, ArrowRight, Bell, UserCircle,
   Code, Rocket, Building2, Globe,
-} from 'lucide-react';
+, BarChart3 } from 'lucide-react';
 
 const API_BASE = process.env.NODE_ENV === 'production'
   ? 'https://api.plansearch.cc'

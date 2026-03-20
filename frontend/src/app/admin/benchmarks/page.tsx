@@ -5,7 +5,7 @@ import Link from 'next/link';
 import {
   Database, ArrowLeft, RefreshCw, Play, DollarSign,
   Settings, Search, TrendingUp, BookOpen, Map as MapIcon, ExternalLink,
-} from 'lucide-react';
+, BarChart3 } from 'lucide-react';
 import { triggerBenchmarkScrape, getBenchmarks } from '@/lib/api';
 
 const BUILDING_TYPE_LABELS: Record<string, string> = {

@@ -5,7 +5,7 @@ import Link from 'next/link';
 import {
   Database, ArrowLeft, Settings, Search, TrendingUp, BookOpen,
   Map as MapIcon, RefreshCw, Play, Square, Download, Clock,
-} from 'lucide-react';
+, BarChart3 } from 'lucide-react';
 
 const API_BASE = process.env.NODE_ENV === 'production'
   ? 'https://api.plansearch.cc'

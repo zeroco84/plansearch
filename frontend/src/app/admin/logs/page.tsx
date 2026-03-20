@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Database, ArrowLeft, Activity, RefreshCw, Settings, Search, TrendingUp, BookOpen, Map as MapIcon } from 'lucide-react';
+import { Database, ArrowLeft, Activity, RefreshCw, Settings, Search, TrendingUp, BookOpen, Map as MapIcon , BarChart3 } from 'lucide-react';
 import { getAdminLogs } from '@/lib/api';
 
 export default function LogsPage() {
