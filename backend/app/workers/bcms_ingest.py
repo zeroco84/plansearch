@@ -223,6 +223,25 @@ async def ingest_commencement_notices(
                         )
 
                 await db.execute(text("RELEASE SAVEPOINT bcms_cn_upsert"))
+
+                # ── Webhook dispatch for lifecycle changes ──
+                try:
+                    if stage and code:
+                        from app.workers.webhook_dispatcher import create_webhook_delivery
+                        event = "application.completed" if stage == "complete" else "application.commenced"
+                        payload = {
+                            "event": event,
+                            "data": {
+                                "reg_ref": prefixed_ref,
+                                "planning_authority": values.get("local_authority"),
+                                "lifecycle_stage": stage,
+                                "cn_commencement_date": str(values.get("cn_commencement_date")) if values.get("cn_commencement_date") else None,
+                                "ccc_date_validated": str(values.get("ccc_date_validated")) if values.get("ccc_date_validated") else None,
+                            },
+                        }
+                        await create_webhook_delivery(event, prefixed_ref, payload, db)
+                except Exception as wh_err:
+                    logger.debug(f"Webhook dispatch skipped for CN {planning_ref}: {wh_err}")
             except Exception as db_err:
                 await db.execute(text("ROLLBACK TO SAVEPOINT bcms_cn_upsert"))
                 logger.error(f"DB error for CN {planning_ref}: {db_err}")
@@ -339,6 +358,24 @@ async def ingest_fsc_applications(
                 )
 
                 await db.execute(text("RELEASE SAVEPOINT bcms_fsc_upsert"))
+
+                # ── Webhook dispatch for FSC filed ──
+                try:
+                    from app.workers.webhook_dispatcher import create_webhook_delivery
+                    event = "application.fsc_filed"
+                    payload = {
+                        "event": event,
+                        "data": {
+                            "reg_ref": planning_ref,
+                            "planning_authority": values.get("local_authority"),
+                            "application_type": values.get("application_type"),
+                            "submission_date": str(values.get("submission_date")) if values.get("submission_date") else None,
+                            "lifecycle_stage": "fsc_filed",
+                        },
+                    }
+                    await create_webhook_delivery(event, planning_ref, payload, db)
+                except Exception as wh_err:
+                    logger.debug(f"Webhook dispatch skipped for FSC {planning_ref}: {wh_err}")
             except Exception as db_err:
                 await db.execute(text("ROLLBACK TO SAVEPOINT bcms_fsc_upsert"))
                 logger.error(f"DB error for FSC {planning_ref}: {db_err}")

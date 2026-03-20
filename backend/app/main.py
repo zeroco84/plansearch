@@ -137,6 +137,24 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning(f"Webhook dispatcher not started: {e}")
 
+    # Monthly API quota reset (1st of each month, midnight UTC)
+    async def api_quota_reset_loop():
+        while True:
+            try:
+                now = datetime.utcnow()
+                if now.day == 1 and now.hour == 0 and now.minute < 5:
+                    async with AsyncSession(engine) as db:
+                        await db.execute(
+                            text("UPDATE api_keys SET calls_this_month = 0")
+                        )
+                        await db.commit()
+                    logger.info("Monthly API quota reset complete")
+            except Exception as e:
+                logger.error(f"API quota reset failed: {e}")
+            await asyncio.sleep(300)  # Check every 5 minutes
+
+    asyncio.create_task(api_quota_reset_loop())
+
     logger.info(f"PlanSearch API v{settings.app_version} starting...")
     yield
     logger.info("PlanSearch API shutting down...")

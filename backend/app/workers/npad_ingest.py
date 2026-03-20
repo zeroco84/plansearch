@@ -254,6 +254,15 @@ async def upsert_npad_record(db: AsyncSession, attrs: dict) -> bool:
         # leaving the parent transaction alive for the next record
         await db.execute(text("SAVEPOINT npad_upsert"))
 
+        # Check if record already exists and what the current decision is
+        existing = await db.execute(
+            text("SELECT decision FROM applications WHERE reg_ref = :ref"),
+            {"ref": reg_ref},
+        )
+        old_row = existing.fetchone()
+        old_decision = old_row[0] if old_row else None
+        is_new = old_row is None
+
         cols = list(values.keys())
         placeholders = [f":{k}" for k in cols]
         update_parts = [f"{k} = EXCLUDED.{k}" for k in cols if k != "reg_ref"]
@@ -275,6 +284,39 @@ async def upsert_npad_record(db: AsyncSession, attrs: dict) -> bool:
 
         await db.execute(sql, values)
         await db.execute(text("RELEASE SAVEPOINT npad_upsert"))
+
+        # ── Webhook dispatch for decision changes ──
+        new_decision = values.get("decision")
+        try:
+            event = None
+            if is_new:
+                event = "application.new"
+            elif new_decision and new_decision != old_decision:
+                decision_events = {
+                    "granted": "application.granted",
+                    "conditional": "application.granted",
+                    "refused": "application.refused",
+                    "withdrawn": "application.withdrawn",
+                }
+                event = decision_events.get(new_decision)
+
+            if event:
+                from app.workers.webhook_dispatcher import create_webhook_delivery
+                payload = {
+                    "event": event,
+                    "data": {
+                        "reg_ref": reg_ref,
+                        "planning_authority": values.get("planning_authority"),
+                        "proposal": values.get("proposal"),
+                        "location": values.get("location"),
+                        "decision": new_decision,
+                        "dec_date": str(values.get("dec_date")) if values.get("dec_date") else None,
+                    },
+                }
+                await create_webhook_delivery(event, reg_ref, payload, db)
+        except Exception as wh_err:
+            logger.debug(f"Webhook dispatch skipped for {reg_ref}: {wh_err}")
+
         return True
     except Exception as e:
         # Roll back only this record, not the whole transaction
