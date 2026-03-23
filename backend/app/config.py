@@ -43,6 +43,10 @@ class Settings(BaseSettings):
     app_version: str = "1.0.0"
     debug: bool = False
 
+    # LRD Archiver
+    archive_dir: str = "/data/archived_docs"
+    archive_url_prefix: str = "/api/docs/archived"
+
     class Config:
         env_file = ".env"
         case_sensitive = False

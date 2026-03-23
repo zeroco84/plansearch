@@ -38,6 +38,8 @@ services:
       REDIS_URL: redis://redis:6379
       MASTER_ENCRYPTION_KEY: ${MASTER_ENCRYPTION_KEY}
       ADMIN_TOKEN: ${ADMIN_TOKEN}
+      ARCHIVE_DIR: /data/archived_docs
+      ARCHIVE_URL_PREFIX: /api/docs/archived
     ports:
       - "8000:8000"
     depends_on:
@@ -48,6 +50,7 @@ services:
     restart: unless-stopped
     volumes:
       - ./backend:/app
+      - archived_docs:/data/archived_docs
 
   worker:
     build: ./backend
@@ -90,3 +93,4 @@ services:
 
 volumes:
   postgres_data:
+  archived_docs:

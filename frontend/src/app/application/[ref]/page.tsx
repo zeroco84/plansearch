@@ -612,7 +612,24 @@ export default function ApplicationPage() {
                   <div style={{ display: 'flex', alignItems: 'center', flex: 1, minWidth: 0 }}>
                     <span className="doc-icon">{getDocIcon(doc.doc_name)}</span>
                     <div style={{ minWidth: 0 }}>
-                      <p style={{ fontSize: '0.875rem', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', margin: 0 }}>{doc.doc_name}</p>
+                      <p style={{ fontSize: '0.875rem', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', margin: 0 }}>
+                        {doc.doc_name}
+                        {doc.portal_source === 'lrd_archive' && (
+                          <span style={{
+                            display: 'inline-block',
+                            fontSize: '0.6rem',
+                            fontWeight: 700,
+                            color: '#fff',
+                            background: '#16a34a',
+                            padding: '0.1rem 0.35rem',
+                            borderRadius: '3px',
+                            marginLeft: '0.4rem',
+                            verticalAlign: 'middle',
+                            letterSpacing: '0.03em',
+                            textTransform: 'uppercase',
+                          }}>Archived</span>
+                        )}
+                      </p>
                       {doc.doc_type && <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', margin: 0 }}>{doc.doc_type}</p>}
                     </div>
                   </div>

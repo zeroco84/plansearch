@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import {
   Database, ArrowLeft, FileText, Play, Square, Settings,
-  Search, TrendingUp, BookOpen, Map as MapIcon, RefreshCw, BarChart3 } from 'lucide-react';
+  Search, TrendingUp, BookOpen, Map as MapIcon, RefreshCw, BarChart3, Archive } from 'lucide-react';
 
 const API_BASE = process.env.NODE_ENV === 'production'
   ? 'https://api.plansearch.cc'
@@ -19,20 +19,51 @@ interface DocScraperProgress {
   error: string | null;
 }
 
+interface LrdArchiverProgress {
+  running: boolean;
+  applications_processed: number;
+  files_downloaded: number;
+  bytes_downloaded: number;
+  last_reg_ref: string | null;
+  started_at: string | null;
+  error: string | null;
+}
+
+interface LrdStats {
+  total_applications_archived: number;
+  total_files: number;
+  total_storage_bytes: number;
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes === 0) return '0 MB';
+  const mb = bytes / (1024 * 1024);
+  return `${mb.toFixed(1)} MB`;
+}
+
 export default function DocsPage() {
   const [token, setToken] = useState('');
   const [progress, setProgress] = useState<DocScraperProgress | null>(null);
   const [message, setMessage] = useState('');
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  // LRD archiver state
+  const [lrdProgress, setLrdProgress] = useState<LrdArchiverProgress | null>(null);
+  const [lrdStats, setLrdStats] = useState<LrdStats | null>(null);
+  const [lrdMessage, setLrdMessage] = useState('');
+  const lrdPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
   useEffect(() => {
     const saved = localStorage.getItem('plansearch_admin_token');
     if (saved) {
       setToken(saved);
       fetchProgress(saved);
+      fetchLrdProgress(saved);
+      fetchLrdStats(saved);
     }
     return () => {
       if (pollRef.current) clearInterval(pollRef.current);
+      if (lrdPollRef.current) clearInterval(lrdPollRef.current);
     };
   }, []);
 
@@ -44,6 +75,30 @@ export default function DocsPage() {
       if (res.ok) {
         const data = await res.json();
         setProgress(data);
+      }
+    } catch {}
+  }, [token]);
+
+  const fetchLrdProgress = useCallback(async (t?: string) => {
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/scrape/lrd/progress`, {
+        headers: { Authorization: `Bearer ${t || token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setLrdProgress(data);
+      }
+    } catch {}
+  }, [token]);
+
+  const fetchLrdStats = useCallback(async (t?: string) => {
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/scrape/lrd/stats`, {
+        headers: { Authorization: `Bearer ${t || token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setLrdStats(data);
       }
     } catch {}
   }, [token]);
@@ -60,6 +115,22 @@ export default function DocsPage() {
       if (pollRef.current) clearInterval(pollRef.current);
     };
   }, [progress?.running, fetchProgress]);
+
+  // Poll LRD progress every 15 seconds when running
+  useEffect(() => {
+    if (lrdProgress?.running) {
+      lrdPollRef.current = setInterval(() => {
+        fetchLrdProgress();
+        fetchLrdStats();
+      }, 15000);
+    } else if (lrdPollRef.current) {
+      clearInterval(lrdPollRef.current);
+      lrdPollRef.current = null;
+    }
+    return () => {
+      if (lrdPollRef.current) clearInterval(lrdPollRef.current);
+    };
+  }, [lrdProgress?.running, fetchLrdProgress, fetchLrdStats]);
 
   const handleStart = async () => {
     setMessage('');
@@ -90,7 +161,37 @@ export default function DocsPage() {
     }
   };
 
+  const handleLrdStart = async () => {
+    setLrdMessage('');
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/scrape/lrd/start`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      setLrdMessage(data.status === 'already_running' ? 'Already running' : 'LRD archiver started');
+      setTimeout(() => { fetchLrdProgress(); fetchLrdStats(); }, 1000);
+    } catch {
+      setLrdMessage('Failed to start');
+    }
+  };
+
+  const handleLrdStop = async () => {
+    setLrdMessage('');
+    try {
+      await fetch(`${API_BASE}/api/admin/scrape/lrd/stop`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setLrdMessage('LRD archiver stopped');
+      setTimeout(() => { fetchLrdProgress(); fetchLrdStats(); }, 1000);
+    } catch {
+      setLrdMessage('Failed to stop');
+    }
+  };
+
   const isRunning = progress?.running ?? false;
+  const isLrdRunning = lrdProgress?.running ?? false;
 
   return (
     <main style={{ minHeight: '100vh', background: '#f9f8f6' }}>
@@ -180,6 +281,98 @@ export default function DocsPage() {
           {progress?.started_at && (
             <p className="text-xs text-[var(--text-muted)] mt-2">
               Started: {new Date(progress.started_at).toLocaleString()}
+            </p>
+          )}
+        </div>
+
+        {/* ── LRD Archiver ──────────────────────────────────────────── */}
+
+        <h2 style={{ fontSize: '1.25rem', fontWeight: '600', marginTop: '2.5rem', marginBottom: '1rem', fontFamily: "'Playfair Display', serif" }}>
+          <Archive style={{ display: 'inline', width: '1.125rem', height: '1.125rem', marginRight: '0.5rem', verticalAlign: 'middle' }} />
+          LRD Document Archiver
+        </h2>
+
+        {/* LRD Live Status */}
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4" style={{ marginBottom: '1.25rem' }}>
+          <div className="stat-card">
+            <div className="stat-value text-2xl">
+              {isLrdRunning
+                ? <span style={{ color: '#22c55e' }}>● Running</span>
+                : <span style={{ color: '#ef4444' }}>● Stopped</span>
+              }
+            </div>
+            <div className="stat-label">Status</div>
+          </div>
+          <div className="stat-card">
+            <div className="stat-value text-2xl">{lrdProgress?.applications_processed?.toLocaleString() ?? '0'}</div>
+            <div className="stat-label">Apps Processed</div>
+          </div>
+          <div className="stat-card">
+            <div className="stat-value text-2xl">{lrdProgress?.files_downloaded?.toLocaleString() ?? '0'}</div>
+            <div className="stat-label">Files Downloaded</div>
+          </div>
+          <div className="stat-card">
+            <div className="stat-value text-2xl">{formatBytes(lrdProgress?.bytes_downloaded ?? 0)}</div>
+            <div className="stat-label">Downloaded</div>
+          </div>
+          <div className="stat-card">
+            <div className="stat-value text-lg" style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '0.85rem', wordBreak: 'break-all' }}>
+              {lrdProgress?.last_reg_ref || '—'}
+            </div>
+            <div className="stat-label">Last Ref</div>
+          </div>
+        </div>
+
+        {/* LRD Stats */}
+        {lrdStats && (
+          <div className="grid grid-cols-3 gap-4" style={{ marginBottom: '1.25rem' }}>
+            <div className="stat-card">
+              <div className="stat-value text-2xl">{lrdStats.total_applications_archived.toLocaleString()}</div>
+              <div className="stat-label">Applications Archived</div>
+            </div>
+            <div className="stat-card">
+              <div className="stat-value text-2xl">{lrdStats.total_files.toLocaleString()}</div>
+              <div className="stat-label">Total Files</div>
+            </div>
+            <div className="stat-card">
+              <div className="stat-value text-2xl">{formatBytes(lrdStats.total_storage_bytes)}</div>
+              <div className="stat-label">Total Storage</div>
+            </div>
+          </div>
+        )}
+
+        {/* LRD Controls */}
+        <div className="admin-card" style={{ marginBottom: '1.25rem', padding: '1.5rem' }}>
+          <h3 className="text-base font-semibold mb-4">Archiver Controls</h3>
+          <p className="text-sm text-[var(--text-secondary)] mb-4">
+            Downloads and archives planning documents from council portals to local storage.
+            Archived documents remain accessible even after portal links expire. Rate limited
+            to 1 download every 2 seconds. Prioritises recent applications.
+          </p>
+          <div className="flex items-center gap-4">
+            {!isLrdRunning ? (
+              <button className="btn-primary" onClick={handleLrdStart}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}>
+                <Play className="w-4 h-4" /> Start LRD Archiver
+              </button>
+            ) : (
+              <button className="btn-primary" onClick={handleLrdStop}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', background: '#ef4444' }}>
+                <Square className="w-4 h-4" /> Stop Archiver
+              </button>
+            )}
+            <button className="text-sm text-[var(--text-muted)]" onClick={() => { fetchLrdProgress(); fetchLrdStats(); }}
+              style={{ border: 'none', background: 'none', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
+              <RefreshCw className="w-3 h-3" /> Refresh
+            </button>
+          </div>
+          {lrdMessage && <p className="text-sm text-green-600 mt-3">{lrdMessage}</p>}
+          {lrdProgress?.error && (
+            <p className="text-sm text-red-600 mt-3">Error: {lrdProgress.error}</p>
+          )}
+          {lrdProgress?.started_at && (
+            <p className="text-xs text-[var(--text-muted)] mt-2">
+              Started: {new Date(lrdProgress.started_at).toLocaleString()}
             </p>
           )}
         </div>
